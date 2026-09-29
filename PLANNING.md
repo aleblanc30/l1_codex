@@ -16,7 +16,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Regions are the 26 CATMAID segment volumes (brain hemispheres, SEZ, T1 to T3, A1 to A8, left and right), assigned per synapse by point-in-mesh lookup, with `UNASGD` outside every mesh. Neuropil-level innervation comes later from a curated table built from the papers.
 - Synaptic sites whose partner is a single-node placeholder skeleton are collapsed into one aggregate node per role and region (54 in total, ids from 900,000,000), flagged as aggregates and excluded from pathway search, motif search and reciprocal counts. Each real neuron carries counts of its synapses to such sites.
 - Mirror twins come from `hemilateral_pair_<id>_<id>` and `paired with #<id>` annotations.
-- CATMAID links replace the neuroglancer links. Thumbnails and mesh views are hidden for now.
+- Visualization stays in neuroglancer, as in the FlyWire version, with sources for the L1 volume in place of the FlyWire ones. CATMAID is not used as a viewer. Thumbnails and mesh views are hidden until they can be rendered offline.
 - Tests are written before the implementation.
 
 ## Facts from the survey
@@ -51,6 +51,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Look at the 450 neurons whose anchor point is outside every mesh
 - [ ] Decide whether mirror twin coverage (1,198 neurons) needs more sources
 - [ ] Reconcile the orphan share with the 25% figure in Winding et al. 2023
+- [ ] Export skeletons in a neuroglancer-readable format (needs the node data that the current export discards after summarizing)
 - [ ] Curated neurotransmitter table from the literature
 - [ ] Curated neuropil innervation table from the papers
 
@@ -73,9 +74,12 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Skip aggregates in pathway search, motif search and reciprocal counts
 - [ ] Show the orphan share as a completeness indicator, with a note that degree counts understate connectivity
 
-### Phase 4: viewer links
+### Phase 4: neuroglancer viewer
 
-- [ ] CATMAID URL builders replacing `codex/utils/nglui.py`, after confirming the URL parameters for several skeletons
+- [ ] Find where the L1 EM image can be read by neuroglancer, from the project's stack mirror metadata (no tile downloads by the tooling)
+- [ ] Decide how skeletons reach neuroglancer: precomputed skeletons written offline (for example with navis) and hosted with the data, or inline line annotations as a fallback for small selections
+- [ ] Decide whether the segment volumes are also shown as meshes
+- [ ] Rewrite the URL builders in `codex/utils/nglui.py` for L1 (nanometre positions, 3.8 x 3.8 x 50 nm voxels) and replace the FlyWire links on cell pages
 - [ ] Hide skeleton thumbnails and neuropil mesh views
 
 ### Phase 5: tests and CI
