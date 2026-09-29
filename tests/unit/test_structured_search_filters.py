@@ -199,9 +199,16 @@ class Test(TestCase):
                 self.assertTrue(op1 == op2 or op1 not in op2)
 
     def test_match_list_of_neuropils(self):
+        self.assertEqual({"BRAIN_L", "BRAIN_R"}, _match_list_of_neuropils("brain"))
+        self.assertEqual({"A1_L", "A1_R"}, _match_list_of_neuropils("a1"))
+        self.assertEqual({"SEZ_L", "SEZ_R"}, _match_list_of_neuropils("SEZ"))
+        # a region name matches the segments on both sides, a description matches all of a kind
         self.assertEqual(
-            {"AME_L", "ME_L", "ME_R", "AME_R"}, _match_list_of_neuropils("medulla")
+            {"BRAIN_L", "BRAIN_R"}, _match_list_of_neuropils("brain hemisphere")
         )
+        self.assertEqual(22, len(_match_list_of_neuropils("segment")))
+        # FlyWire neuropil names are not regions of the L1 dataset
+        self.assertEqual(set(), _match_list_of_neuropils("medulla"))
 
     def test_attributes_consistency(self):
         names_and_alternative_names = []

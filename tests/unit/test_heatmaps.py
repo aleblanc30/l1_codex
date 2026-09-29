@@ -78,28 +78,22 @@ class Test(TestCase):
 
     def test_group_data(self):
         expected_side_data = {
-            ("All", "All"): 34153566,
-            ("All", "Center"): 106466,
-            ("All", "Left"): 15918456,
-            ("All", "Right"): 18128464,
-            ("All", "Unknown"): 180,
-            ("Center", "All"): 102394,
-            ("Center", "Center"): 2296,
-            ("Center", "Left"): 49589,
-            ("Center", "Right"): 50509,
-            ("Left", "All"): 16100603,
-            ("Left", "Center"): 51894,
-            ("Left", "Left"): 13159934,
-            ("Left", "Right"): 2888658,
-            ("Left", "Unknown"): 117,
-            ("Right", "All"): 17949504,
-            ("Right", "Center"): 52276,
-            ("Right", "Left"): 2708270,
-            ("Right", "Right"): 15188895,
-            ("Right", "Unknown"): 63,
-            ("Unknown", "All"): 1065,
-            ("Unknown", "Left"): 663,
-            ("Unknown", "Right"): 402,
+            ("All", "All"): 977369,
+            ("All", "Left"): 366804,
+            ("All", "Right"): 352328,
+            ("All", "Unknown"): 258237,
+            ("Left", "All"): 262285,
+            ("Left", "Left"): 129023,
+            ("Left", "Right"): 59487,
+            ("Left", "Unknown"): 73775,
+            ("Right", "All"): 243173,
+            ("Right", "Left"): 57250,
+            ("Right", "Right"): 113023,
+            ("Right", "Unknown"): 72900,
+            ("Unknown", "All"): 471911,
+            ("Unknown", "Left"): 180531,
+            ("Unknown", "Right"): 179818,
+            ("Unknown", "Unknown"): 111562,
         }
         self.assertEqual(
             expected_side_data, counts_data(self.neuron_db, "side", "Synapses")
@@ -114,37 +108,13 @@ class Test(TestCase):
         )
 
     def test_compute_group_sizes(self):
+        # 5,013 skeletons and the 54 aggregate nodes for orphaned sites
         self.assertEqual(
-            {
-                "Alin": 24,
-                "All": 139255,
-                "Alln": 427,
-                "Alon": 14,
-                "Alpn": 685,
-                "An": 2362,
-                "Bilateral": 220,
-                "Cx": 2869,
-                "Dan": 331,
-                "Gustatory": 343,
-                "Hygrosensory": 74,
-                "Kenyon Cell": 5177,
-                "Lhcent": 42,
-                "Lhln": 514,
-                "Mbin": 4,
-                "Mbon": 96,
-                "Mechanosensory": 2648,
-                "Ocellar": 63,
-                "Olfactory": 2281,
-                "Optic Lobe Intrinsic": 76928,
-                "Optic Lobes": 16,
-                "Pars Intercerebralis": 40,
-                "Pars Lateralis": 26,
-                "Thermosensory": 29,
-                "Tpn": 2,
-                "Tubu": 150,
-                "Unknown": 32286,
-                "Unknown Sensory": 135,
-                "Visual": 11469,
-            },
+            {"All": 5067, "Left": 813, "Right": 745, "Unknown": 3509},
+            compute_group_sizes(self.neuron_db, "side"),
+        )
+        # the L1 export has no classes yet
+        self.assertEqual(
+            {"All": 5067, "Unknown": 5067},
             compute_group_sizes(self.neuron_db, "class"),
         )

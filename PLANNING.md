@@ -97,7 +97,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 ### Phase 5: tests and CI
 
 - [x] Synthetic L1-style fixture under `tests/` (`tests/l1_fixture.py`: four cells including an orphan aggregate, in the export schema)
-- [ ] Rewrite the 34 unit tests that still assert FlyWire facts: `test_neuron_data.py` (26), `test_heatmaps.py` (2), `test_graph_algos.py` (2), `test_motif_search.py` (2), `test_connectivity.py`, `test_stats_utils.py` and `test_structured_search_filters.py` (1 each). `test_graph_algos.py` alone hard-codes 54 ids, and `test_annotations_web_safe` contradicts the verbatim-names decision
+- [x] Rewrote the 34 unit tests that asserted FlyWire facts (`test_neuron_data.py`, `test_heatmaps.py`, `test_graph_algos.py`, `test_motif_search.py`, `test_connectivity.py`, `test_stats_utils.py`, `test_structured_search_filters.py`). They now assert L1 facts: 5,013 skeletons plus 54 aggregates, 856 cell types, UNKNOWN transmitters, no classes or hemilineages, and the L1 regions. `test_annotations_web_safe` now checks that names are kept verbatim; `test_graph_algos.py` adds a small synthetic pathway graph in place of the 54 hard-coded ids
 - [ ] Mocked-pymaid test of the export script
 - [x] CI data step: `python -m codex.data.local_data_loader` now builds the database from the bundled export without any download
 
@@ -132,7 +132,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Setup for the exporter: `poetry install --with export`.
 - Trial export: `poetry run python scripts/export_l1.py --limit 50 --out-dir <dir> --cache-dir <dir>`.
 - Full export: the same command without `--limit`. It took roughly 15 to 20 minutes and resumes from the cache directory if interrupted.
-- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 446 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
+- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 492 passing and 0 failing.
 - The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change (the app exits with a message when the pickle does not match the code).
 - Packages needed to run the whole suite locally: Flask and user-agents. `nglui` did not build in the cloud environment, so `tests/app_client.py` stubs it when the real package cannot be imported. The client also serves as a smoke test of the pages against the L1 data.
 - The pathways page takes `source_cell_id` and `target_cell_id`, and returns an error without them.
