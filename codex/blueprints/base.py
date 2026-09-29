@@ -57,7 +57,7 @@ tabs = [
 ]
 
 dropdown_items = [
-    ["about_flywire", "base.about_flywire", "FlyWire Info & Credits"],
+    ["about_flywire", "base.about_flywire", "L1 Info & Credits"],
     ["faq", "base.faq", "FAQ"],
 ]
 more_tabs = [item[0] for item in dropdown_items]
