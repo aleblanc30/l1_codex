@@ -63,7 +63,7 @@
 
                 <a href="{{url_for('app.cell_details', data_version=data_version, root_id=neuron.root_id)}}" onclick="loading(event);">{{neuron.name}}</a>
                 <br>
-                <small style="font-size: 10px;">{{highlighted_terms.get(neuron.root_id, neuron.root_id)|safe}}</small>
+                <small style="font-size: 10px;">{{ (highlighted_terms[neuron.root_id]|safe) if neuron.root_id in highlighted_terms else neuron.root_id }}</small>
                 <br>
                 <a class="btn btn-link btn-sm" style="padding-left: 0px;" href="{{url_for('app.neuroglancer_url', data_version=data_version, root_ids=[neuron.root_id])}}"
                    target="_blank" role="button" title="Render in 3D">3D viewer <i class="fa-solid fa-up-right-from-square"></i></a>
@@ -71,7 +71,7 @@
             {% if extra_data %}
                 <td style="color:black;">{{extra_data.values_dict.get(neuron.root_id)}}</td>
             {% endif %}
-            <td style="color:#3A3AAA;">{{highlighted_terms.get(neuron.nt_type, neuron.nt_type)|safe}}
+            <td style="color:#3A3AAA;">{{ (highlighted_terms[neuron.nt_type]|safe) if neuron.nt_type in highlighted_terms else neuron.nt_type }}
                 {% if neuron.nt_type %}
                 <br><small style="color: {{'green' if neuron.nt_type_score > 0.65 else ('orange' if neuron.nt_type_score > 0.45 else 'red')}}">{{neuron.nt_type_score}}</small>
                 {% endif %}

@@ -2,7 +2,7 @@
     <div class="spotfilter">
         <nobr>
         <small><span style="color: teal" title="{{tooltip}}">{{caption}}</span>
-            {{highlighted_terms.get(attr_val, attr_val)|safe}}
+            {{ (highlighted_terms[attr_val]|safe) if attr_val in highlighted_terms else attr_val }}
         </small>
         {% if attr_key in multi_val_attrs %}
         <span class="td_filter_buttons">

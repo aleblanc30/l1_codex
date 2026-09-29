@@ -128,7 +128,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Setup for the exporter: `poetry install --with export`.
 - Trial export: `poetry run python scripts/export_l1.py --limit 50 --out-dir <dir> --cache-dir <dir>`.
 - Full export: the same command without `--limit`. It took roughly 15 to 20 minutes and resumes from the cache directory if interrupted.
-- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 156 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
+- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 312 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
 - The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change.
 - Packages needed to run the whole suite locally: Flask and user-agents. `nglui` did not build in the cloud environment, so `tests/app_client.py` stubs it when the real package cannot be imported. The client also serves as a smoke test of the pages against the L1 data.
 - The pathways page takes `source_cell_id` and `target_cell_id`, and returns an error without them.

@@ -70,5 +70,5 @@ class FreeTextSearchTest(TestCase):
         self.assertEqual([1003], db.search("1004"))
         self.assertEqual([1003], db.search("MBE100"))
 
-    def test_star_lists_every_cell(self):
-        self.assertEqual({1001, 1002, 1003, AGGREGATE_ID}, self.search("*"))
+    def test_star_lists_every_real_cell_and_no_aggregate(self):
+        self.assertEqual({1001, 1002, 1003}, self.search("*"))
