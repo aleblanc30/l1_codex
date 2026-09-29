@@ -6,6 +6,7 @@ profile
 
 # Source data files
 static/data/
+static/l1_export_cache/
 static/raw_data/
 static/experimental_data/
 static/gcs_ls_logs/

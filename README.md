@@ -24,6 +24,21 @@ poetry install
 poetry run ./scripts/make_data.sh
 ```
 
+### Export the L1 larval dataset from CATMAID (optional, maintainers only)
+
+The exporter reads the public L1 CATMAID project through
+[pymaid](https://github.com/navis-org/pymaid) and writes Codex data files. It requests
+skeletons, annotations, connectors and region volumes only, never EM image data, and it
+throttles and caches its requests. Run it once per data release and host the output.
+
+```sh
+poetry install --with export
+poetry run python scripts/export_l1.py --out-dir static/data/l1_export
+```
+
+Use `--limit 50` for a trial run of the pipeline. Set `CATMAID_API_TOKEN` for servers that
+require a token.
+
 ## Run service locally
 
 ```bash

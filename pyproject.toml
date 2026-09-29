@@ -25,6 +25,14 @@ python-dotenv = "^0.21.1"
 coverage = "^7.2.7"
 
 
+[tool.poetry.group.export]
+optional = true
+
+
+[tool.poetry.group.export.dependencies]
+python-catmaid = "^2.4.3"
+
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
