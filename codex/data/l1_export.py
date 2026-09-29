@@ -253,7 +253,7 @@ def build_export_tables(
         group = (
             cell_types[0]
             if cell_types
-            else (summary["soma_region"] or UNASSIGNED_REGION)
+            else (summary["position_region"] or UNASSIGNED_REGION)
         )
         stats = orphan_stats.get(skeleton, {})
 

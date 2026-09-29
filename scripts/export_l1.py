@@ -37,6 +37,8 @@ from codex.data.l1_export import (
 )
 
 DEFAULT_SERVER = "https://l1em.catmaid.virtualflybrain.org"
+# Bump when the shape of cached results changes, so stale caches are not reused.
+CACHE_VERSION = 2
 
 
 class Cache:
@@ -44,8 +46,14 @@ class Cache:
         self.directory = directory
         os.makedirs(directory, exist_ok=True)
 
+    def _path(self, key):
+        return os.path.join(self.directory, f"v{CACHE_VERSION}_{key}.pkl")
+
+    def has(self, key):
+        return os.path.exists(self._path(key))
+
     def get(self, key, compute):
-        path = os.path.join(self.directory, f"{key}.pkl")
+        path = self._path(key)
         if os.path.exists(path):
             with open(path, "rb") as f:
                 return pickle.load(f)
@@ -165,9 +173,7 @@ def summarize_neuron(neuron, volumes):
         "cable_length_nm": float(neuron.cable_length),
         "has_soma": bool(soma_ids),
         "position_xyz": position,
-        "soma_region": (
-            regions_for_points([position], volumes)[0] if soma_ids else None
-        ),
+        "position_region": regions_for_points([position], volumes)[0],
     }
     return summary, connector_regions
 
@@ -187,9 +193,7 @@ def fetch_neuron_batch(batch, volumes):
 def fetch_neurons(ids, batch_size, delay, cache, volumes):
     summaries, connector_regions, missing = [], {}, []
     for i, batch in enumerate(chunked(ids, batch_size)):
-        cached = os.path.exists(
-            os.path.join(cache.directory, f"neurons_{batch[0]}_{len(batch)}.pkl")
-        )
+        cached = cache.has(f"neurons_{batch[0]}_{len(batch)}")
         results, batch_missing = cache.get(
             f"neurons_{batch[0]}_{len(batch)}",
             lambda b=batch: fetch_neuron_batch(b, volumes),

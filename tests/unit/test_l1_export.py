@@ -282,7 +282,7 @@ class ExportTablesTest(TestCase):
                 "cable_length_nm": 12345.6,
                 "has_soma": True,
                 "position_xyz": (10, 20, 30),
-                "soma_region": "A1_R",
+                "position_region": "A1_R",
             },
             {
                 "skeleton_id": 1,
@@ -291,7 +291,7 @@ class ExportTablesTest(TestCase):
                 "cable_length_nm": 99.0,
                 "has_soma": False,
                 "position_xyz": (1, 2, 3),
-                "soma_region": None,
+                "position_region": None,
             },
         ]
         self.annotations = {
@@ -334,7 +334,7 @@ class ExportTablesTest(TestCase):
         for r in self.tables["neurons.csv.gz"][1:]:
             self.assertEqual(NT_UNKNOWN, r[nt_col])
 
-    def test_group_prefers_cell_type_then_soma_region(self):
+    def test_group_prefers_cell_type_then_position_region(self):
         g = L1_EXPORT_SCHEMA["neurons.csv.gz"].index("group")
         by_id = {r[0]: r[g] for r in self.tables["neurons.csv.gz"][1:]}
         self.assertEqual("MBON-a1", by_id[2])
