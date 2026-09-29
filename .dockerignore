@@ -1,0 +1,11 @@
+.git
+.github
+static/data
+static/l1_export_cache
+data/l1_skeletons
+data/l1_meshes
+tests
+htmlcov
+.pytest_cache
+.venv
+__pycache__

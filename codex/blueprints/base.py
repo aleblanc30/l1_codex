@@ -25,7 +25,6 @@ from codex.utils.formatting import (
     percentage,
     truncate,
 )
-from codex.utils.thumbnails import url_for_skeleton
 from codex import logger
 
 
@@ -178,7 +177,7 @@ def index(path):
             },
             {
                 "header": "Explore",
-                "body": "Browse cell types, labels, and groupings of the neurons in the dataset",
+                "body": "Browse cell types and groupings of the neurons in the dataset",
                 "asset_filename": "card-explore.jpg",
                 "url": "app.explore",
             },
@@ -272,17 +271,6 @@ def activity_suffix(filter_string, data_version):
         if data_version and data_version != DEFAULT_DATA_SNAPSHOT_VERSION
         else ""
     )
-
-
-@base.route("/skeleton_thumbnail_url")
-def skeleton_thumbnail_url():
-    cell_or_neuropil = request.args.get("cell_or_neuropil")
-    file_type = request.args.get("file_type", type=str, default="png")
-    log_request = request.args.get("log_request", default=1, type=int)
-    url = url_for_skeleton(cell_or_neuropil=cell_or_neuropil, file_type=file_type)
-    if log_request:
-        logger.info(f"Fetching skeleton URL for {cell_or_neuropil}: {format_link(url)}")
-    return redirect(url, code=302)
 
 
 @base.route("/flywire_homepage")

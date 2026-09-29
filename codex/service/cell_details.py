@@ -5,7 +5,11 @@ from flask import url_for
 
 from codex.configuration import MIN_SYN_THRESHOLD
 from codex.data.brain_regions import neuropil_hemisphere, NEUROPIL_DESCRIPTIONS
-from codex.data.neurotransmitters import lookup_nt_type_name, NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import (
+    lookup_nt_type_name,
+    NEURO_TRANSMITTER_NAMES,
+    NT_UNKNOWN,
+)
 from codex.data.structured_search_filters import (
     OP_UPSTREAM,
     OP_DOWNSTREAM,
@@ -15,12 +19,9 @@ from codex.data.structured_search_filters import (
     OP_SIMILAR_CONNECTIVITY_DOWNSTREAM,
     OP_SIMILAR_CONNECTIVITY,
 )
-from codex.data.versions import DEFAULT_DATA_SNAPSHOT_VERSION
-from codex.utils import nglui
 from codex.utils import stats as stats_utils
 from codex.utils.formatting import (
     concat_labels,
-    nanometer_to_flywire_coordinates,
     nanos_to_formatted_micros,
     display,
 )
@@ -59,20 +60,10 @@ def cached_cell_details(
     cell_names_or_id, root_id, neuron_db, data_version, reachability_stats
 ):
     nd = neuron_db.get_neuron_data(root_id=root_id)
-    pos = (
-        nanometer_to_flywire_coordinates(nd["position"][0]) if nd["position"] else None
-    )
-    fw_url = nglui.url_for_root_ids(
-        root_ids=[root_id],
-        version=data_version or DEFAULT_DATA_SNAPSHOT_VERSION,
-        point_to="flywire_public",
-        position=pos,
-    )
     cell_attributes = {
         "Name": nd["name"],
-        "FlyWire Root ID": f"{root_id}<br><small>"
-        f'<a href="{fw_url}" target="_blank">Open in FlyWire editor <i class="fa-solid fa-up-right-from-square"></i> </a><br>'
-        f'<a href="cell_coordinates/{root_id}?data_version={data_version}" target="_blank">Supervoxel IDs and Coordinates <i class="fa-solid fa-up-right-from-square"></i> </a>'
+        "Skeleton ID": f"{root_id}<br><small>"
+        f'<a href="cell_coordinates/{root_id}?data_version={data_version}" target="_blank">Coordinates <i class="fa-solid fa-up-right-from-square"></i> </a>'
         "</small>",
         "Partners<br><small>Synapses</small>": '<a href="'
         + url_for("app.search", filter_string=f"{OP_UPSTREAM} {root_id}")
@@ -82,11 +73,19 @@ def cached_cell_details(
         + f'<br><small><i class="fa-solid fa-arrow-up"></i> {display(nd["input_synapses"])} in &#183; '
         + f'{display(nd["output_synapses"])} out <i class="fa-solid fa-arrow-down"></i></small>',
         "NT Type": nd["nt_type"]
-        + f' ({lookup_nt_type_name(nd["nt_type"])})<br><small>predictions '
-        + ", ".join(
-            [f"{k}: {nd[f'{k.lower()}_avg']}" for k in sorted(NEURO_TRANSMITTER_NAMES)]
-        )
-        + "</small>",
+        + f' ({lookup_nt_type_name(nd["nt_type"])})'
+        + (
+            ""
+            if nd["nt_type"] == NT_UNKNOWN
+            else "<br><small>predictions "
+            + ", ".join(
+                [
+                    f"{k}: {nd[f'{k.lower()}_avg']}"
+                    for k in sorted(NEURO_TRANSMITTER_NAMES)
+                ]
+            )
+            + "</small>"
+        ),
         "Size": "<small>"
         + "<br>".join(
             [
@@ -126,11 +125,6 @@ def cached_cell_details(
         'info & credits <i class="fa-solid fa-up-right-from-square"></i></a></small>': concat_labels(
             nd["connectivity_tag"],
             linker=lambda con_tag: connectivity_tag_links(root_id, con_tag),
-        ),
-        "Community Labels<br><small>"
-        f'<a href="{url_for("app.labeling_log", root_id=root_id)}" target="_blank">'
-        'info & credits <i class="fa-solid fa-up-right-from-square"></i></a></small>': concat_labels(
-            nd["label"]
         ),
     }
 

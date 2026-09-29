@@ -1,12 +1,12 @@
 from unittest import TestCase
 
 from codex.service.motif_search import MotifSearchQuery, EdgeConstraints
-from tests import _TEST_NEURON_DATA_FACTORY
+from tests import get_testing_neuron_data_factory
 
 
 class TestMotifSearchQuery(TestCase):
     def test_add_node(self):
-        msq = MotifSearchQuery(_TEST_NEURON_DATA_FACTORY)
+        msq = MotifSearchQuery(get_testing_neuron_data_factory())
         msq.add_node("a", "")
 
         with self.assertRaises(ValueError) as context:
@@ -36,7 +36,7 @@ class TestMotifSearchQuery(TestCase):
         self.assertEqual("Max nodes limit of 3 exceeded", str(context.exception))
 
     def test_add_edge(self):
-        msq = MotifSearchQuery(_TEST_NEURON_DATA_FACTORY)
+        msq = MotifSearchQuery(get_testing_neuron_data_factory())
         msq.add_node("a", "")
         msq.add_node("b", "")
         msq.add_node("c", "")
@@ -115,7 +115,7 @@ class TestMotifSearchQuery(TestCase):
         )
 
     def test_fetch_feasible_connections(self):
-        neuron_db = _TEST_NEURON_DATA_FACTORY.get()
+        neuron_db = get_testing_neuron_data_factory().get()
         edge_constraints = [
             EdgeConstraints(regions=["GNG"], min_synapse_count=6, nt_type=None),
             EdgeConstraints(regions=["LAL_L"], min_synapse_count=10, nt_type="ACH"),

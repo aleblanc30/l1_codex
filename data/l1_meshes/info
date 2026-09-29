@@ -1,0 +1,1 @@
+{"@type": "neuroglancer_multiscale_volume", "type": "segmentation", "data_type": "uint64", "num_channels": 1, "scales": [{"key": "1", "size": [1, 1, 1], "resolution": [1, 1, 1], "chunk_sizes": [[1, 1, 1]], "encoding": "raw", "voxel_offset": [0, 0, 0]}], "mesh": "mesh", "segment_properties": "segment_properties"}

@@ -1,0 +1,78 @@
+{
+  "exported_at": "2026-09-29T04:57:48.565239+00:00",
+  "server": "https://l1em.catmaid.virtualflybrain.org",
+  "project_id": 1,
+  "trial_limit": null,
+  "skeletons": 5013,
+  "connection_rows": 162492,
+  "orphan_aggregates": 54,
+  "skipped_synapse_links": {
+    "no_presynaptic_partner": 12782,
+    "both_orphan": 184481
+  },
+  "files": {
+    "neurons.csv.gz": 5067,
+    "classification.csv.gz": 5067,
+    "cell_types.csv.gz": 1969,
+    "papers.csv.gz": 8405,
+    "annotations.csv.gz": 358186,
+    "skeletons.csv.gz": 5067,
+    "connections.csv.gz": 162492
+  },
+  "schema": {
+    "neurons.csv.gz": [
+      "root_id",
+      "group",
+      "nt_type",
+      "nt_type_score",
+      "da_avg",
+      "ser_avg",
+      "gaba_avg",
+      "glut_avg",
+      "ach_avg",
+      "oct_avg"
+    ],
+    "classification.csv.gz": [
+      "root_id",
+      "flow",
+      "super_class",
+      "class",
+      "sub_class",
+      "hemilineage",
+      "side",
+      "nerve"
+    ],
+    "cell_types.csv.gz": [
+      "root_id",
+      "primary_type",
+      "additional_type(s)"
+    ],
+    "papers.csv.gz": [
+      "root_id",
+      "paper"
+    ],
+    "annotations.csv.gz": [
+      "root_id",
+      "annotation"
+    ],
+    "skeletons.csv.gz": [
+      "root_id",
+      "skeleton_name",
+      "node_count",
+      "has_soma",
+      "length_nm",
+      "position",
+      "mirror_twin_root_id",
+      "is_aggregate",
+      "orphan_output_synapses",
+      "orphan_input_synapses"
+    ],
+    "connections.csv.gz": [
+      "pre_root_id",
+      "post_root_id",
+      "neuropil",
+      "syn_count",
+      "nt_type"
+    ]
+  }
+}

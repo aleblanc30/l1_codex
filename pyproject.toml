@@ -14,7 +14,7 @@ python = "^3.9"
 Flask = "3.0.3"
 requests = "2.31.0"
 user-agents = "2.2.0"
-nglui = "2.7.2"
+gunicorn = ">=22.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -23,6 +23,14 @@ black = "^24.3.0"
 ruff = "^0.0.246"
 python-dotenv = "^0.21.1"
 coverage = "^7.2.7"
+
+
+[tool.poetry.group.export]
+optional = true
+
+
+[tool.poetry.group.export.dependencies]
+python-catmaid = "^2.4.3"
 
 
 [build-system]

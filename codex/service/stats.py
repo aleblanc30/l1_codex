@@ -2,7 +2,6 @@ from functools import lru_cache
 
 from codex.configuration import MIN_SYN_THRESHOLD
 from codex.data.neuron_data_factory import NeuronDataFactory
-from codex.utils.formatting import percentage, display
 from codex.utils.graph_algos import reachable_node_counts
 from codex.utils import stats as stats_utils
 
@@ -58,35 +57,4 @@ def stats_cached(filter_string, data_version, case_sensitive, whole_word):
         hint,
         data_stats,
         data_charts,
-    )
-
-
-@lru_cache
-def leaderboard_cached(query, user_filter, lab_filter, data_version):
-    neuron_db = NeuronDataFactory.instance().get(version=data_version)
-    query_filtered_ids = neuron_db.search(query)
-    rid_to_label_data = neuron_db.label_data_for_ids(
-        query_filtered_ids, user_filter=user_filter, lab_filter=lab_filter
-    )
-    ld = stats_utils.collect_leaderboard_data(
-        label_data=list(rid_to_label_data.values()),
-        top_n=20,
-        include_lab_leaderboard=True,
-    )
-    if not user_filter and not lab_filter:
-        labeled_cells = len(
-            [
-                rid
-                for rid in query_filtered_ids
-                if neuron_db.get_neuron_data(rid)["label"]
-            ]
-        )
-        labeled_cells_caption = f"{display(labeled_cells)} out of {display(len(query_filtered_ids))} ({percentage(labeled_cells, len(query_filtered_ids))})"
-    else:
-        labeled_cells_caption = (
-            f"{display(len(rid_to_label_data))}" if rid_to_label_data else ""
-        )
-    return (
-        labeled_cells_caption,
-        stats_utils.format_for_display(ld),
     )

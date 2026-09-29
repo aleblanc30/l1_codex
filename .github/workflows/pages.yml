@@ -1,0 +1,53 @@
+name: Publish the neuroglancer data to GitHub Pages
+
+# The 3D viewer links read the skeleton and mesh files from this site
+# (see codex/utils/nglui.py). One-time setup: Settings > Pages > Source: GitHub Actions.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - data/l1_skeletons/**
+      - data/l1_meshes/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir -p site/data
+          cp -r data/l1_skeletons data/l1_meshes site/data/
+          # names.json only helps the exporter resume; the viewer does not read it
+          rm -f site/data/l1_skeletons/names.json
+          # publish the files as they are, without a Jekyll build
+          touch site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

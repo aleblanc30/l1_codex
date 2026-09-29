@@ -28,7 +28,7 @@
     </a>
 
     <a class="btn btn-link" target="_blank"
-       href="{{url_for('app.search_results_flywire_url', filter_string=filter_string, case_sensitive=case_sensitive, whole_word=whole_word, data_version=data_version)}}"
+       href="{{url_for('app.search_results_neuroglancer_url', filter_string=filter_string, case_sensitive=case_sensitive, whole_word=whole_word, data_version=data_version)}}"
        ><i class="fa-solid fa-cube"></i> &nbsp; 3D view {{'' if root_ids_str else 'sample'}}
     </a>
 
@@ -100,20 +100,6 @@
 {% endif %}
 
 {% if not num_items %}
-{% if searched_for_root_id %}
-<div class="card" style="margin: 15px;">
-    <div class="card-header" style="color: red;">
-        {{filter_string}} is not included in this data snapshot
-    </div>
-    <div class="card-body">
-        The Flywire Root ID you searched for is not part of the data snapshot loaded in Codex (see more details below).
-        If you have access to FlyWire production data, you can load it in Flywire viewer and map to one of the cells in this dataset manually.
-        <p><br><a class="btn btn-outline-primary"
-       href="{{url_for('app.flywire_url', root_ids=filter_string, point_to='flywire_prod')}}" target="_blank"
-       ><i class="fa-solid fa-cube"></i> &nbsp; Open in Flywire</a></p>
-    </div>
-</div>
-{% endif %}
 <div class="card" style="margin: 15px;">
     <div class="card-header" style="color: purple;">
         Tips for working with Codex

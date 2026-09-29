@@ -3,7 +3,7 @@ from functools import lru_cache
 from random import choice
 
 from codex.data.connections import Connections
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 from codex.data.search_index import SearchIndex
 from codex.data.structured_search_filters import (
@@ -30,11 +30,22 @@ NEURON_SEARCH_LABEL_ATTRIBUTES = [
     "class",
     "sub_class",
     "cell_type",
+    "skeleton_name",
     "flow",
     "hemilineage",
     "nerve",
     "side",
     "connectivity_tag",
+]
+
+
+# Attributes whose values are searchable by word prefix and by substring, and not only as whole labels.
+# Raw source annotations are left out on purpose (too many, too noisy). They can be searched by attribute.
+NEURON_SEARCH_TEXT_ATTRIBUTES = [
+    "label",
+    "skeleton_name",
+    "cell_type",
+    "papers",
 ]
 
 
@@ -59,20 +70,24 @@ class NeuronDB(object):
 
         logger.debug("App initialization building search index..")
 
-        def searchable_labels(ndata):
-            labels = []
-            for c in NEURON_SEARCH_LABEL_ATTRIBUTES:
+        def searchable_values(ndata, attributes):
+            values = []
+            for c in attributes:
                 val = ndata[c]
                 if val:
                     if isinstance(val, list):
-                        labels += val
+                        values += val
                     else:
-                        labels.append(val)
-            return labels
+                        values.append(val)
+            return values
 
         self.search_index = SearchIndex(
             [
-                (nd["label"], searchable_labels(nd), k)
+                (
+                    searchable_values(nd, NEURON_SEARCH_TEXT_ATTRIBUTES),
+                    searchable_values(nd, NEURON_SEARCH_LABEL_ATTRIBUTES),
+                    k,
+                )
                 for k, nd in self.neuron_data.items()
             ]
         )
@@ -131,7 +146,7 @@ class NeuronDB(object):
     def connections(
         self, ids, induced=False, min_syn_count=0, nt_type=None, regions=None
     ):
-        if nt_type and nt_type not in NEURO_TRANSMITTER_NAMES:
+        if nt_type and nt_type not in NEURO_TRANSMITTER_NAMES and nt_type != NT_UNKNOWN:
             raise ValueError(
                 f"Unknown NT type: {nt_type}, must be one of {NEURO_TRANSMITTER_NAMES}"
             )
@@ -486,6 +501,13 @@ class NeuronDB(object):
 
     @lru_cache
     def search(self, search_query, case_sensitive=False, word_match=False):
+        # A number that is the id of a cell finds that cell only. Ids are short and would otherwise
+        # match numbers inside names.
+        if search_query and search_query.strip().isdigit():
+            root_id = int(search_query)
+            if root_id in self.neuron_data:
+                return [root_id]
+
         if not search_query:
             return sorted(
                 self.neuron_data.keys(),

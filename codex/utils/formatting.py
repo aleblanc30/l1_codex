@@ -30,6 +30,12 @@ def make_web_safe(txt):
     )
 
 
+def clean_display_name(txt):
+    """Trim surrounding whitespace and collapse inner whitespace runs, keeping every other
+    character (quotes included) as is."""
+    return " ".join(txt.split()) if isinstance(txt, str) else txt
+
+
 def synapse_table_to_csv_string(table):
     table = [["From", "To", "Neuropil", "Synapses", "Neuro Transmitter"]] + table
     return "\n".join([",".join([str(r) for r in row]) for row in table])
@@ -187,16 +193,6 @@ def display(w):
             return round(w, 3 - int(floor(log10(abs(w)))) - 1)
     else:
         return w
-
-
-def nanometer_to_flywire_coordinates(coordinates):
-    coordinates = tokenize(coordinates)
-    assert len(coordinates) == 3
-    return (
-        round(int(coordinates[0]) / 4),
-        round(int(coordinates[1]) / 4),
-        round(int(coordinates[2]) / 40),
-    )
 
 
 def nanos_to_formatted_micros(nanos, degree):

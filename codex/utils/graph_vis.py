@@ -169,12 +169,9 @@ def make_graph_html(
 
         prefix = "queried cell" if nid in center_ids else "connected cell"
         cell_detail_url = url_for("app.cell_details", root_id=nid)
-        thumbnail_url = url_for("base.skeleton_thumbnail_url", cell_or_neuropil=nid)
         return (
             f'<a href="{cell_detail_url}" target="_parent">{name}</a> [{prefix}]<br><small>{nid}'
-            f"</small><br><small>{class_and_annotations}</small><br>"
-            f'<a href="{cell_detail_url}" target="_parent">'
-            f'<img src="{thumbnail_url}" width="200px" height="150px;" border="0px;"></a>'
+            f"</small><br><small>{class_and_annotations}</small>"
         )
 
     def neuropil_title(pil):
@@ -182,18 +179,8 @@ def make_graph_html(
         npil_explorer_url = url_for("app.neuropils", selected=",".join(nset))
         one_pil = nset.pop() if len(nset) == 1 else None
         description = neuropil_description(one_pil) if one_pil else pil
-        thumbnail_url = (
-            url_for("base.skeleton_thumbnail_url", cell_or_neuropil=one_pil)
-            if one_pil
-            else None
-        )
         return (
             f"Brain Region: {pil}<br><small>{description}</small>"
-            + (
-                f'<br><img src="{thumbnail_url}" width="200px" height="150px;" border="0px;"></a>'
-                if thumbnail_url
-                else ""
-            )
             + f'<br><a href="{npil_explorer_url}" target="_blank">see in neuropil explorer</a> '
         )
 

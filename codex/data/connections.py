@@ -1,7 +1,9 @@
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 SYN_COUNT_MULTIPLIER = 8
-NT_TO_ID = {nt: i for i, nt in enumerate(sorted(NEURO_TRANSMITTER_NAMES.keys()))}
+NT_TO_ID = {
+    nt: i for i, nt in enumerate(sorted(NEURO_TRANSMITTER_NAMES.keys()) + [NT_UNKNOWN])
+}
 ID_TO_NT = {v: k for k, v in NT_TO_ID.items()}
 
 
