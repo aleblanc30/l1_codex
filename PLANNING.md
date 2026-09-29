@@ -107,7 +107,8 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [x] Render blueprint (`render.yaml`) for a free web service that sleeps when idle, with a generated `FLASK_SECRET_KEY`, and a Deployment section in the README
 - [x] GitHub Actions workflow that publishes the skeleton and mesh files to GitHub Pages (its assemble step was run locally; the workflow itself has not run on GitHub). The 27 mesh manifests with a colon in their name (`<id>:0`, required by neuroglancer) are kept in the repository, which Git on Windows cannot check out
 - [ ] Merge to `main`, and in the repository settings choose GitHub Actions as the Pages source (one time), then run the workflow and check `https://aleblanc30.github.io/l1_codex/data/l1_skeletons/info`
-- [ ] Create the service on Render from the blueprint, and check the first request after a sleep (the free tier's current terms and limits were not checked)
+- [x] `FLASK_SECRET_KEY` is optional (the app uses no sessions), because a service created by hand on Render, without the Blueprint, has no generated key and the first deploy failed on it. Checked by running the image with no environment variable except `PORT`
+- [ ] Create the service on Render (New, then Web Service, runtime Docker, Free instance; or New, then Blueprint, with `render.yaml` on the selected branch), and check the first request after a sleep (the free tier's current terms and limits were not checked)
 - [ ] Decide on a domain name, if one is wanted
 
 ### Deferred

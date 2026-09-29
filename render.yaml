@@ -5,6 +5,7 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /
+    # No environment variables are required. FLASK_SECRET_KEY is optional (the app uses no sessions).
     envVars:
       - key: FLASK_SECRET_KEY
         generateValue: true
