@@ -96,7 +96,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Phase 5: tests and CI
 
-- [ ] Synthetic L1-style fixture under `tests/`
+- [x] Synthetic L1-style fixture under `tests/` (`tests/l1_fixture.py`: four cells including an orphan aggregate, in the export schema)
 - [ ] Rewrite the 34 unit tests that still assert FlyWire facts: `test_neuron_data.py` (26), `test_heatmaps.py` (2), `test_graph_algos.py` (2), `test_motif_search.py` (2), `test_connectivity.py`, `test_stats_utils.py` and `test_structured_search_filters.py` (1 each). `test_graph_algos.py` alone hard-codes 54 ids, and `test_annotations_web_safe` contradicts the verbatim-names decision
 - [ ] Mocked-pymaid test of the export script
 - [x] CI data step: `python -m codex.data.local_data_loader` now builds the database from the bundled export without any download
