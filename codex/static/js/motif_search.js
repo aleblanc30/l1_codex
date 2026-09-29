@@ -89,20 +89,21 @@ function ResultsTable({ results, selected, setSelected }) {
   const endIndex = startIndex + resultsPerPage;
 
   return html`
-    <table className="table table-hover">
-      <thead>
-        <tr>
-          ${Object.keys(results[0].nodes).map((k) => html`<th key=${k}>${k}</th>`)}
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${results.slice(startIndex, endIndex).map((r, i) => html`<${TableRow} key=${i} result=${r} index=${i} selected=${selected} onRowClick=${setSelected} />`)}
-      </tbody>
-    </table>
+    <div>
+      <table className="table table-hover">
+        <thead>
+          <tr>
+            ${Object.keys(results[0].nodes).map((k) => html`<th key=${k}>${k}</th>`)}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.slice(startIndex, endIndex).map((r, i) => html`<${TableRow} key=${i} result=${r} index=${i} selected=${selected} onRowClick=${setSelected} />`)}
+        </tbody>
+      </table>
+      ${totalPages > 1 && html`<${PaginationControls} totalPages=${totalPages} currentPage=${page} onPageChange=${handlePageChange} maxVisiblePages=${maxVisiblePages} />`}
+    </div>
   `;
-   // TODO: show pagination controls only when >1 pages:
-   // <${PaginationControls} totalPages=${totalPages} currentPage=${page} onPageChange=${handlePageChange} maxVisiblePages=${maxVisiblePages} />
 }
 
 function TableRow({ result, index, selected, onRowClick }) {

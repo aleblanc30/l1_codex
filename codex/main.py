@@ -1,12 +1,12 @@
 import os
 import secrets
 
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request
 
 from codex.blueprints.app import app
 from codex.blueprints.base import base
 from codex.data.neuron_data_factory import NeuronDataFactory
-from codex.configuration import RedirectHomeError
+from codex.error_handlers import register_error_handlers
 from codex import logger
 import logging
 
@@ -29,19 +29,7 @@ def before_request():
     logger.info(f"APP: Processing request to {request.url}")
 
 
-@codex.errorhandler(RedirectHomeError)
-def handle_redirect_home_error(e):
-    logger.error(f"Redirecting home due to exception: {e}")
-    return redirect(url_for("base.index"))
-
-
-@codex.errorhandler(404)
-def page_not_found(e):
-    logger.error(f"404: {e}")
-    return redirect(url_for("base.page_not_found"))
-
-
-# TODO more handlers for other errors
+register_error_handlers(codex)
 
 # The app does not use sessions, so the key is optional. Without one, a random key is generated for this
 # process (with several worker processes each would have its own, which matters only if sessions are used).
