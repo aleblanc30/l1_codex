@@ -3,8 +3,9 @@ import gc
 import gzip
 import os
 import pickle
-from datetime import datetime, UTC
+from pathlib import Path
 
+from codex.data.catalog import get_data_schema
 from codex.data.neuron_data_initializer import (
     initialize_neuron_data,
     NEURON_DATA_ATTRIBUTE_TYPES,
@@ -15,122 +16,99 @@ from codex.utils.networking import download
 from codex import logger
 
 DATA_ROOT_PATH = "static/data"
-NEURON_FILE_NAME = "neurons.csv.gz"
-CLASSIFICATION_FILE_NAME = "classification.csv.gz"
-CONSOLIDATED_CELL_TYPES_FILE_NAME = "consolidated_cell_types.csv.gz"
-CELL_STATS_ROWS = "cell_stats.csv.gz"
-CONNECTIONS_FILE_NAME = "connections.csv.gz"
-LABELS_FILE_NAME = "labels.csv.gz"
-COORDINATES_FILE_NAME = "coordinates.csv.gz"
-NBLAST_FILE_NAME = "nblast.csv.gz"
-CONNECTIVITY_TAGS_FILE_NAME = "connectivity_tags.csv.gz"
-
-
 NEURON_DB_PICKLE_FILE_NAME = "neuron_db.pickle.gz"
 
-GCS_PICKLE_URL_TEMPLATE = "https://storage.googleapis.com/flywire-data/codex/data/fafb/{version}/neuron_db.pickle.gz"
-GCS_RAW_DATA_URL_TEMPLATE = (
-    "https://storage.googleapis.com/flywire-data/codex/data/fafb/{version}/{filename}"
-)
+# One raw data file per catalog table
+DATA_FILE_NAMES = [f"{table}.csv.gz" for table in get_data_schema()]
+
+# Raw data files shipped with the repository. They are used when a version's files are
+# neither in the data folder nor available at the URL in DATA_URL_ENV_VAR.
+BUNDLED_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data" / "l1_export")
+
+# Base URL of hosted raw data files (the file name is appended)
+DATA_URL_ENV_VAR = "CODEX_DATA_URL"
 
 
 def data_file_path_for_version(version, data_root_path=DATA_ROOT_PATH):
     return f"{data_root_path}/{version}"
 
 
-def load_neuron_db(data_root_path=DATA_ROOT_PATH, version=None):
-    if version is None:
-        version = DEFAULT_DATA_SNAPSHOT_VERSION
+def find_raw_file(
+    filename,
+    version,
+    data_root_path=DATA_ROOT_PATH,
+    bundled_path=BUNDLED_DATA_PATH,
+    base_url=None,
+):
+    """Path of a raw data file: the data folder first, then the hosted copy, then the bundled one."""
     data_file_path = data_file_path_for_version(
         version=version, data_root_path=data_root_path
     )
-    print(f" loading data from {data_file_path}...")
+    local_path = os.path.join(data_file_path, filename)
+    if os.path.isfile(local_path):
+        return local_path
 
-    def _read_data(filename, with_timestamp=False):
-        fname = f"{data_file_path}/{filename}"
-        if not os.path.exists(fname):
-            print(f" downloading raw data file {filename} for version {version}..")
-            ok = download(
-                url=GCS_RAW_DATA_URL_TEMPLATE.format(
-                    version=version, filename=filename
-                ),
-                dest_folder=data_file_path,
+    base_url = base_url or os.environ.get(DATA_URL_ENV_VAR)
+    if base_url:
+        url = f"{base_url.rstrip('/')}/{filename}"
+        logger.info(f"Downloading raw data file {filename} for version {version}")
+        if download(url, data_file_path) and os.path.isfile(local_path):
+            return local_path
+        logger.warning(f"Raw data file {filename} could not be downloaded from {url}")
+
+    bundled_file = os.path.join(bundled_path, filename)
+    return bundled_file if os.path.isfile(bundled_file) else None
+
+
+def load_neuron_db(
+    data_root_path=DATA_ROOT_PATH, version=None, bundled_path=BUNDLED_DATA_PATH
+):
+    if version is None:
+        version = DEFAULT_DATA_SNAPSHOT_VERSION
+    logger.info(f"Loading data for version {version}...")
+
+    rows = {}
+    for table in get_data_schema():
+        filename = f"{table}.csv.gz"
+        path = find_raw_file(filename, version, data_root_path, bundled_path)
+        if path is None:
+            raise FileNotFoundError(
+                f"Raw data file {filename} for version {version} was not found in "
+                f"{data_file_path_for_version(version, data_root_path)}, at ${DATA_URL_ENV_VAR} "
+                f"or in {bundled_path}"
             )
-            if not ok:
-                print(
-                    f"WARNING: Raw data file {filename} for version {version} could not be downloaded"
-                )
+        rows[table] = read_csv(path)
 
-        if os.path.exists(fname):
-            rows = read_csv(fname)
-            if with_timestamp:
-                return rows, datetime.fromtimestamp(
-                    os.path.getmtime(fname), UTC
-                ).strftime("%Y-%m-%d")
-            else:
-                return rows
-        else:
-            if with_timestamp:
-                return [], "?"
-            else:
-                return []
-
-    neuron_rows = _read_data(NEURON_FILE_NAME)
-    classification_rows = _read_data(CLASSIFICATION_FILE_NAME)
-    cell_type_rows = _read_data(CONSOLIDATED_CELL_TYPES_FILE_NAME)
-    cell_stats_rows = _read_data(CELL_STATS_ROWS)
-    connection_rows = _read_data(CONNECTIONS_FILE_NAME)
-    label_rows, labels_file_timestamp = _read_data(
-        LABELS_FILE_NAME, with_timestamp=True
+    logger.info(
+        f"Loaded {len(rows['neurons']) - 1} neuron rows and "
+        f"{len(rows['connections']) - 1} connection rows"
     )
-    coordinate_rows = _read_data(COORDINATES_FILE_NAME)
-    nblast_rows = _read_data(NBLAST_FILE_NAME)
-    connectivity_tag_rows = _read_data(CONNECTIVITY_TAGS_FILE_NAME)
-
-    print(
-        f" loading data from {data_file_path}:\n"
-        f"   {len(neuron_rows)} neuron rows\n"
-        f"   {len(connection_rows)} connection rows\n"
-        f"   {len(label_rows)} label rows ({labels_file_timestamp})\n"
-        f"   {len(coordinate_rows)} coordinate rows\n"
-        f"   {len(nblast_rows)} nblast rows\n"
+    return initialize_neuron_data(
+        neuron_file_rows=rows["neurons"],
+        classification_rows=rows["classification"],
+        cell_type_rows=rows["cell_types"],
+        paper_rows=rows["papers"],
+        annotation_rows=rows["annotations"],
+        skeleton_rows=rows["skeletons"],
+        connection_rows=rows["connections"],
     )
-    neuron_db = initialize_neuron_data(
-        neuron_file_rows=neuron_rows,
-        classification_rows=classification_rows,
-        cell_type_rows=cell_type_rows,
-        cell_stats_rows=cell_stats_rows,
-        connection_rows=connection_rows,
-        label_rows=label_rows,
-        labels_file_timestamp=labels_file_timestamp,
-        coordinate_rows=coordinate_rows,
-        nblast_rows=nblast_rows,
-        connectivity_tag_rows=connectivity_tag_rows,
-    )
-    # free mem
-    del neuron_rows
-    del connection_rows
-    del label_rows
-    del coordinate_rows
-    del cell_type_rows
-    return neuron_db
 
 
-def unpickle_neuron_db(version, data_root_path=DATA_ROOT_PATH):
+def unpickle_neuron_db(
+    version, data_root_path=DATA_ROOT_PATH, bundled_path=BUNDLED_DATA_PATH
+):
     try:
         fldr = data_file_path_for_version(
             version=version, data_root_path=data_root_path
         )
         pf = f"{fldr}/{NEURON_DB_PICKLE_FILE_NAME}"
         if not os.path.isfile(pf):
-            print(f" downloading pickle for version {version}")
-            ok = download(
-                url=GCS_PICKLE_URL_TEMPLATE.format(version=version), dest_folder=fldr
+            logger.info(f"Building the data pickle for version {version}")
+            load_and_pickle_neuron_db_versions(
+                data_root_path=data_root_path,
+                versions=[version],
+                bundled_path=bundled_path,
             )
-            if not ok:
-                raise RuntimeError(
-                    f"Failed to download data file for {version=} and {data_root_path=}"
-                )
         with gzip.open(pf, "rb") as handle:
             gc.disable()
             db = pickle.load(handle)
@@ -147,7 +125,7 @@ def unpickle_neuron_db(version, data_root_path=DATA_ROOT_PATH):
                         )
                         exit(1)
             gc.enable()
-            print(f" pickle loaded for version {version}")
+            logger.info(f"Pickle loaded for version {version}")
             return db
     except Exception as e:
         logger.error(f"Failed to load DB for data version {version}: {e}")
@@ -162,12 +140,16 @@ def unpickle_all_neuron_db_versions(data_root_path=DATA_ROOT_PATH):
 
 
 def load_and_pickle_neuron_db_versions(
-    data_root_path=DATA_ROOT_PATH, versions=DATA_SNAPSHOT_VERSIONS
+    data_root_path=DATA_ROOT_PATH,
+    versions=DATA_SNAPSHOT_VERSIONS,
+    bundled_path=BUNDLED_DATA_PATH,
 ):
     for v in versions:
         print(f"Loading data for version {v}..")
-        db = load_neuron_db(version=v, data_root_path=data_root_path)
-        pf = f"{data_file_path_for_version(version=v, data_root_path=data_root_path)}/{NEURON_DB_PICKLE_FILE_NAME}"
+        db = load_neuron_db(version=v, data_root_path=data_root_path, bundled_path=bundled_path)
+        fldr = data_file_path_for_version(version=v, data_root_path=data_root_path)
+        os.makedirs(fldr, exist_ok=True)
+        pf = f"{fldr}/{NEURON_DB_PICKLE_FILE_NAME}"
         print(f" writing pickle to {pf}..")
         with gzip.open(pf, "wb") as handle:
             pickle.dump(db, handle, protocol=pickle.HIGHEST_PROTOCOL)

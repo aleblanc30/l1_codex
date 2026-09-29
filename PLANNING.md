@@ -57,13 +57,13 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Phase 2: core data changes
 
-- [ ] Replace the FlyWire schema in `codex/data/catalog.py` with the L1 schema, including the skeleton, paper and annotation files
-- [ ] Replace the FAFB region list, categories and colors in `brain_regions.py` with the 27 L1 regions
-- [ ] Accept `UNKNOWN` neurotransmitters in the initializer and lookups, and check the cell page text
-- [ ] Remove the voxel conversion and use nanometre positions
-- [ ] Update `neuron_data_initializer.py` to read the new files, drop supervoxel ids and mark aggregates
-- [ ] Point the loader at the hosted files and set an L1 release label in `versions.py`
-- [ ] Decide how names with quotes, whitespace and commas are stored (`make_web_safe` rewrites quotes, and list columns split on commas)
+- [x] Replace the FlyWire schema in `codex/data/catalog.py` with the L1 schema (`L1_EXPORT_SCHEMA` now derives from it)
+- [x] Replace the FAFB region list, categories and colors in `brain_regions.py` with the 27 L1 regions (`REGIONS` derives from `L1_REGIONS`, segment ids are the CATMAID volume ids)
+- [x] Accept `UNKNOWN` neurotransmitters in the initializer, connection encoding, `NeuronDB.connections` and the search filter, and hide the prediction line on the cell page
+- [x] Remove the voxel conversion and use nanometre positions
+- [x] Update `neuron_data_initializer.py` to read the new files, drop supervoxel ids and mark aggregates
+- [x] Point the loader at the raw files (data folder, then `CODEX_DATA_URL`, then the bundled `data/l1_export`), build a missing pickle from them, and set the release label `l1-2026-09`
+- [x] Names: `group` and `skeleton_name` are kept verbatim apart from whitespace trimming, and cell types, papers and raw annotations are kept exactly as exported
 
 ### Phase 3: filtering
 
@@ -73,6 +73,10 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Global neuron-set filter with the Winding 2023 default and per-request aggregates
 - [ ] Skip aggregates in pathway search, motif search and reciprocal counts
 - [ ] Show the orphan share as a completeness indicator, with a note that degree counts understate connectivity
+- [ ] Index skeleton names and annotations for partial-word search (only community labels are tokenized today, so `v'ada` does not match `v'ada_a3l`, and names are found only whole)
+- [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes)
+- [ ] Add the `group` attribute to the heatmap and network group-by lists, since flow, class and sub-class are empty
+- [ ] Decide what to do with the FlyWire community features that have no L1 data (labels, leaderboard, annotate cell), and with the motif search, statistics and label-cleaning code that lists only known transmitters
 
 ### Phase 4: neuroglancer viewer
 
@@ -85,9 +89,9 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 ### Phase 5: tests and CI
 
 - [ ] Synthetic L1-style fixture under `tests/`
-- [ ] Rewrite the tests that depend on FlyWire ids and counts (`test_graph_algos.py` alone hard-codes 54 ids)
+- [ ] Rewrite the 34 unit tests that still assert FlyWire facts: `test_neuron_data.py` (26), `test_heatmaps.py` (2), `test_graph_algos.py` (2), `test_motif_search.py` (2), `test_connectivity.py`, `test_stats_utils.py` and `test_structured_search_filters.py` (1 each). `test_graph_algos.py` alone hard-codes 54 ids, and `test_annotations_web_safe` contradicts the verbatim-names decision
 - [ ] Mocked-pymaid test of the export script
-- [ ] Change the CI data step to use the fixture
+- [x] CI data step: `python -m codex.data.local_data_loader` now builds the database from the bundled export without any download
 
 ### Deferred
 
@@ -106,5 +110,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Setup for the exporter: `poetry install --with export`.
 - Trial export: `poetry run python scripts/export_l1.py --limit 50 --out-dir <dir> --cache-dir <dir>`.
 - Full export: the same command without `--limit`. It took roughly 15 to 20 minutes and resumes from the cache directory if interrupted.
-- Unit tests: `python3 -m pytest tests/unit/test_l1_export.py`.
+- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 156 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
+- The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change.
+- Packages needed to run the whole suite locally: Flask and user-agents (nglui is not needed by the unit tests).
 - The exporter has been run end to end only against the public server, with the throttle at its defaults.

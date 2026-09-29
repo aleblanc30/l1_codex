@@ -7,7 +7,9 @@ Python data so it can be tested without a server.
 import re
 from collections import defaultdict
 
-NT_UNKNOWN = "UNKNOWN"
+from codex.data.catalog import get_data_schema
+from codex.data.neurotransmitters import NT_UNKNOWN
+
 UNASSIGNED_REGION = "UNASGD"
 
 # Regions are the CATMAID segment volumes (brain hemispheres, SEZ, thoracic and abdominal segments).
@@ -25,55 +27,9 @@ ORPHAN_ID_BASE = 900_000_000
 _ROLES = ("pre", "post")
 _ROLE_LABELS = {"pre": "presynaptic", "post": "postsynaptic"}
 
+# One gzipped CSV per catalog table
 L1_EXPORT_SCHEMA = {
-    "neurons.csv.gz": [
-        "root_id",
-        "group",
-        "nt_type",
-        "nt_type_score",
-        "da_avg",
-        "ser_avg",
-        "gaba_avg",
-        "glut_avg",
-        "ach_avg",
-        "oct_avg",
-    ],
-    "classification.csv.gz": [
-        "root_id",
-        "flow",
-        "super_class",
-        "class",
-        "sub_class",
-        "hemilineage",
-        "side",
-        "nerve",
-    ],
-    # one row per (root_id, cell type)
-    "cell_types.csv.gz": ["root_id", "primary_type", "additional_type(s)"],
-    # one row per (root_id, publication)
-    "papers.csv.gz": ["root_id", "paper"],
-    # one row per (root_id, raw CATMAID annotation)
-    "annotations.csv.gz": ["root_id", "annotation"],
-    "skeletons.csv.gz": [
-        "root_id",
-        "skeleton_name",
-        "node_count",
-        "has_soma",
-        "length_nm",
-        "position",
-        "mirror_twin_root_id",
-        "is_aggregate",
-        "orphan_output_synapses",
-        "orphan_input_synapses",
-    ],
-    # one row per (pre_root_id, post_root_id, neuropil) tuple
-    "connections.csv.gz": [
-        "pre_root_id",
-        "post_root_id",
-        "neuropil",
-        "syn_count",
-        "nt_type",
-    ],
+    f"{table}.csv.gz": columns for table, columns in get_data_schema().items()
 }
 
 _IMAGE_ENDPOINT_TOKENS = ("tile", "stack", "image", "/img", "iiif", "cutout")

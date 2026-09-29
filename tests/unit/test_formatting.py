@@ -5,7 +5,7 @@ from codex.utils.parsing import tokenize_and_fold_for_highlight
 from codex.utils.formatting import (
     highlight_annotations,
     truncate,
-    nanometer_to_flywire_coordinates,
+    clean_display_name,
     nanos_to_formatted_micros,
     display,
 )
@@ -127,20 +127,6 @@ class TestHighlighting(TestCase):
         self.assertEqual("123", truncate(123, 5))
         self.assertEqual("123..", truncate(123456789, 5))
 
-    def test_nanometer_to_flywire_coordinates(self):
-        self.assertEqual((1, 1, 1), nanometer_to_flywire_coordinates("[4, 4, 40]"))
-        self.assertEqual((1, 1, 1), nanometer_to_flywire_coordinates("[4, 4, 41]"))
-        self.assertEqual((1, 1, 2), nanometer_to_flywire_coordinates("[3, 3, 61]"))
-        self.assertEqual((1, 1, 2), nanometer_to_flywire_coordinates("[3 3 61]"))
-        self.assertEqual((1, 1, 2), nanometer_to_flywire_coordinates("3, 3, 61"))
-        self.assertEqual((1, 1, 2), nanometer_to_flywire_coordinates("3 3  61"))
-        with self.assertRaises(ValueError):
-            nanometer_to_flywire_coordinates("3, 3, foo")
-        with self.assertRaises(AssertionError):
-            nanometer_to_flywire_coordinates("3, 33")
-        with self.assertRaises(AssertionError):
-            nanometer_to_flywire_coordinates("3, 3, 3 2")
-
     def test_nanos_to_formatted_micros(self):
         self.assertEqual("1 &#181;m", nanos_to_formatted_micros(1000, 1))
         self.assertEqual("1 &#181;m", nanos_to_formatted_micros(1234, 1))
@@ -172,3 +158,22 @@ class TestHighlighting(TestCase):
         self.assertEqual(0.0123, display(0.0123456))
         self.assertEqual(0.00000123, display(0.00000123456))
         self.assertEqual(None, display(None))
+
+
+class TestCleanDisplayName(TestCase):
+    def test_surrounding_whitespace_is_removed(self):
+        self.assertEqual("v'ada_a4r", clean_display_name("v'ada_a4r "))
+        self.assertEqual("frag", clean_display_name("  frag\t"))
+
+    def test_inner_whitespace_runs_collapse_to_one_space(self):
+        self.assertEqual("DALd_l 2", clean_display_name("DALd_l  2"))
+        self.assertEqual("a b c", clean_display_name("a\tb\nc"))
+
+    def test_other_characters_are_kept_verbatim(self):
+        text = "v'pda \"x\" & <b>, y"
+        self.assertEqual(text, clean_display_name(text))
+
+    def test_empty_and_non_strings(self):
+        self.assertEqual("", clean_display_name(""))
+        self.assertEqual("", clean_display_name("   "))
+        self.assertEqual(5, clean_display_name(5))

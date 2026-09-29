@@ -7,7 +7,11 @@ from codex.data.brain_regions import (
     HEMISPHERES,
     neuropil_hemisphere,
 )
-from codex.data.neurotransmitters import lookup_nt_type, NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import (
+    lookup_nt_type,
+    NEURO_TRANSMITTER_NAMES,
+    NT_UNKNOWN,
+)
 from codex.utils.graph_algos import pathways
 from codex.utils.parsing import tokenize, edit_distance
 from codex import logger
@@ -63,7 +67,7 @@ STRUCTURED_SEARCH_ATTRIBUTES = [
         name="nt_type",
         alternative_names=["nt", "neurotransmitter", "neuro_transmitter"],
         value_convertor=lambda x: lookup_nt_type(x),
-        value_range=sorted(NEURO_TRANSMITTER_NAMES),
+        value_range=sorted(NEURO_TRANSMITTER_NAMES) + [NT_UNKNOWN],
     ),
     SearchAttribute(
         description="Brain region / neuropil with upstream synaptic connections",

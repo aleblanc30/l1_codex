@@ -54,7 +54,6 @@ from codex.utils.formatting import (
     can_be_flywire_root_id,
     display,
     highlight_annotations,
-    nanometer_to_flywire_coordinates,
     synapse_table_to_csv_string,
     synapse_table_to_json_dict,
 )
@@ -502,11 +501,8 @@ def cell_coordinates(cell_id):
     logger.info(f"Loading coordinates for cell {cell_id}, {data_version=}")
     neuron_db = NeuronDataFactory.instance().get(data_version)
     nd = neuron_db.get_neuron_data(cell_id)
-    return f"<h2>Supervoxel IDs and coordinates for {cell_id}</h2>" + "<br>".join(
-        [
-            f"Supervoxel ID: {s}, nanometer coordinates: {c}, FlyWire coordinates: {nanometer_to_flywire_coordinates(c)}"
-            for c, s in zip(nd["position"], nd["supervoxel_id"])
-        ]
+    return f"<h2>Coordinates for {cell_id}</h2>" + "<br>".join(
+        [f"Nanometer coordinates: {c}" for c in nd["position"]]
     )
 
 

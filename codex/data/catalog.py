@@ -23,25 +23,24 @@ _CODEX_DATA_SCHEMA = {
         "side",
         "nerve",
     ],
+    # one row per (id, cell type)
     "cell_types": ["root_id", "primary_type", "additional_type(s)"],
+    # one row per (id, publication)
+    "papers": ["root_id", "paper"],
+    # one row per (id, raw source annotation)
+    "annotations": ["root_id", "annotation"],
     # one row per id
-    "cell_stats": [
+    "skeletons": [
         "root_id",
+        "skeleton_name",
+        "node_count",
+        "has_soma",
         "length_nm",
-        "area_nm",
-        "size_nm",
-    ],
-    # multiple rows per id
-    "labels": [
-        "root_id",
-        "label",
-        "user_id",
         "position",
-        "supervoxel_id",
-        "label_id",
-        "date_created",
-        "user_name",
-        "user_affiliation",
+        "mirror_twin_root_id",
+        "is_aggregate",
+        "orphan_output_synapses",
+        "orphan_input_synapses",
     ],
     # one row per (pre_root_id,post_root_id,neuropil) tuple
     "connections": [
@@ -51,23 +50,11 @@ _CODEX_DATA_SCHEMA = {
         "syn_count",
         "nt_type",
     ],
-    # one row per id
-    "connectivity_tags": [
-        "root_id",
-        "connectivity_tag",
-    ],
-    # multiple rows per id
-    "coordinates": [
-        "root_id",
-        "position",
-        "supervoxel_id",
-    ],
-    # one row per id
-    "nblast": [
-        "root_id",
-        "scores",
-    ],
 }
+
+
+def get_data_schema():
+    return {table: list(columns) for table, columns in _CODEX_DATA_SCHEMA.items()}
 
 
 def get_neurons_file_columns():
@@ -82,25 +69,17 @@ def get_cell_types_file_columns():
     return list(_CODEX_DATA_SCHEMA["cell_types"])
 
 
-def get_cell_stats_file_columns():
-    return list(_CODEX_DATA_SCHEMA["cell_stats"])
+def get_papers_file_columns():
+    return list(_CODEX_DATA_SCHEMA["papers"])
 
 
-def get_labels_file_columns():
-    return list(_CODEX_DATA_SCHEMA["labels"])
+def get_annotations_file_columns():
+    return list(_CODEX_DATA_SCHEMA["annotations"])
+
+
+def get_skeletons_file_columns():
+    return list(_CODEX_DATA_SCHEMA["skeletons"])
 
 
 def get_connections_file_columns():
     return list(_CODEX_DATA_SCHEMA["connections"])
-
-
-def get_coordinates_file_columns():
-    return list(_CODEX_DATA_SCHEMA["coordinates"])
-
-
-def get_nblast_file_columns():
-    return list(_CODEX_DATA_SCHEMA["nblast"])
-
-
-def get_connectivity_tags_file_columns():
-    return list(_CODEX_DATA_SCHEMA["connectivity_tags"])

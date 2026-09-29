@@ -12,11 +12,21 @@ TEST_DATA_ROOT_PATH = re.sub(r"tests.*", DATA_ROOT_PATH, os.getcwd())
 if not TEST_DATA_ROOT_PATH.endswith(DATA_ROOT_PATH):
     TEST_DATA_ROOT_PATH += f"/{DATA_ROOT_PATH}"
 
-_TEST_NEURON_DATA_FACTORY = NeuronDataFactory(data_root_path=TEST_DATA_ROOT_PATH)
+_TEST_NEURON_DATA_FACTORY = None
+
+
+# The factory (and so the database) is built on first use, so tests that don't need it don't pay for it
+def get_testing_neuron_data_factory():
+    global _TEST_NEURON_DATA_FACTORY
+    if _TEST_NEURON_DATA_FACTORY is None:
+        _TEST_NEURON_DATA_FACTORY = NeuronDataFactory(
+            data_root_path=TEST_DATA_ROOT_PATH, preload_latest=False
+        )
+    return _TEST_NEURON_DATA_FACTORY
 
 
 def get_testing_neuron_db(version=TESTING_DATA_SNAPSHOT_VERSION):
-    return _TEST_NEURON_DATA_FACTORY.get(version=version)
+    return get_testing_neuron_data_factory().get(version=version)
 
 
 assert APP_ENVIRONMENT == "DEV"

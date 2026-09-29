@@ -7,11 +7,17 @@ NEURO_TRANSMITTER_NAMES = {
     "OCT": "octopamine",
 }
 
+# Neurotransmitter not (yet) determined. Not part of NEURO_TRANSMITTER_NAMES, which lists
+# the transmitters that can be predicted.
+NT_UNKNOWN = "UNKNOWN"
+
 
 def lookup_nt_type(txt):
     if txt:
         if txt.upper() in NEURO_TRANSMITTER_NAMES:
             return txt.upper()
+        if txt.upper() == NT_UNKNOWN:
+            return NT_UNKNOWN
         txt_low = txt.lower()
         for k, v in NEURO_TRANSMITTER_NAMES.items():
             if v.startswith(txt_low):

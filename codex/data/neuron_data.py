@@ -3,7 +3,7 @@ from functools import lru_cache
 from random import choice
 
 from codex.data.connections import Connections
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 from codex.data.search_index import SearchIndex
 from codex.data.structured_search_filters import (
@@ -30,6 +30,7 @@ NEURON_SEARCH_LABEL_ATTRIBUTES = [
     "class",
     "sub_class",
     "cell_type",
+    "skeleton_name",
     "flow",
     "hemilineage",
     "nerve",
@@ -131,7 +132,7 @@ class NeuronDB(object):
     def connections(
         self, ids, induced=False, min_syn_count=0, nt_type=None, regions=None
     ):
-        if nt_type and nt_type not in NEURO_TRANSMITTER_NAMES:
+        if nt_type and nt_type not in NEURO_TRANSMITTER_NAMES and nt_type != NT_UNKNOWN:
             raise ValueError(
                 f"Unknown NT type: {nt_type}, must be one of {NEURO_TRANSMITTER_NAMES}"
             )
