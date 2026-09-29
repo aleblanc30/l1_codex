@@ -35,6 +35,11 @@ CNS_CENTER_NM = (53018, 60486, 126547)
 
 _CNS_COLOR = "#b5b5b5"
 
+# The CNS is about 240 micrometers long along z. Neuroglancer looks down the z axis by default, which
+# shows the brain end-on, so the view is rotated by 90 degrees around x to show the whole CNS from the side.
+_SIDE_VIEW_ORIENTATION = [0.7071067811865476, 0, 0, 0.7071067811865476]
+_PROJECTION_SCALE = 300000
+
 
 def _url(state):
     return f"{NEUROGLANCER_URL}/#!{urllib.parse.quote(json.dumps(state, separators=(',', ':')))}"
@@ -57,7 +62,8 @@ def _state(layers, selected_layer, position):
         "position": list(position or CNS_CENTER_NM),
         "layers": layers,
         "layout": "3d",
-        "projectionScale": 250000,
+        "projectionOrientation": _SIDE_VIEW_ORIENTATION,
+        "projectionScale": _PROJECTION_SCALE,
         "showSlices": False,
         "showAxisLines": False,
         "showDefaultAnnotations": False,

@@ -89,8 +89,9 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [x] The CNS outline and the 26 segment volumes are exported as neuroglancer meshes (`scripts/export_l1_meshes.py`, 708 KB)
 - [x] Hosting: the files live in this public repository (`data/l1_skeletons`, `data/l1_meshes`) and are read from `raw.githubusercontent.com`. Links use the public neuroglancer instance `neuroglancer-demo.appspot.com`. `CODEX_DATA_REF`, `CODEX_DATA_HOST_URL` and `CODEX_NEUROGLANCER_URL` override the branch, the data host and the neuroglancer deployment
 - [x] URL builders in `codex/utils/nglui.py` rewritten for L1 (no `nglui` dependency any more), the FlyWire-named routes renamed (`neuroglancer_url`, `search_results_neuroglancer_url`, `neuroglancer_neuropil_url`), a single cell centers on its soma, and the skeleton thumbnails, the SWC download and the FlyWire links are gone
-- [ ] Check the links on the pushed branch against the real GitHub URLs (set `CODEX_DATA_REF` to the branch until it is merged, because the default is `main`)
-- [ ] Tune the camera (projection scale) and the look of the skeletons and of the CNS outline in a real browser
+- [x] The links were checked in real neuroglancer (headless Chromium) against the pushed branch on GitHub: the cells view and the regions view both render, and the segment list shows the CATMAID names of all 5,013 neurons. `CODEX_DATA_REF` must be set to the branch until it is merged, because the default is `main`
+- [x] Camera: the scene opens on a side view of the whole CNS (rotated 90 degrees around x, scale 300,000)
+- [ ] Look of the skeletons (line width, colors) and of the CNS outline, once real users have tried it
 - [ ] Offer an SWC download again from the skeleton data, if wanted
 
 ### Phase 5: tests and CI

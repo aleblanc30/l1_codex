@@ -54,6 +54,13 @@ class UrlForRootIdsTest(TestCase):
         self.assertFalse(self.state["showSlices"])
         self.assertNotIn("image", {layer["type"] for layer in self.state["layers"]})
 
+    def test_the_cns_is_seen_from_the_side(self):
+        # a quaternion (x, y, z, w) of unit length: 90 degrees around the x axis
+        x, y, z, w = self.state["projectionOrientation"]
+        self.assertAlmostEqual(1.0, x * x + y * y + z * z + w * w)
+        self.assertAlmostEqual(0.7071, x, places=3)
+        self.assertGreater(self.state["projectionScale"], 100000)
+
     def test_coordinates_are_nanometres(self):
         self.assertEqual(
             {axis: [1e-9, "m"] for axis in "xyz"}, self.state["dimensions"]
