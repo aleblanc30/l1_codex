@@ -26,7 +26,7 @@ OTHER_PAGES = [
     "/app/neuropils",
     "/app/connectivity?cell_names_or_ids=29",
     "/app/path_length",
-    "/app/pathways?source_cell_id=29&target_cell_id=11995",
+    "/app/pathways?source_cell_id=29&target_cell_id=11995&neuron_set=all",
     "/app/motifs/",
     "/app/cell_coordinates/29",
     "/faq",

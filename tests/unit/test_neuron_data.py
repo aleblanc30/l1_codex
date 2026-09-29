@@ -19,7 +19,6 @@ from codex.utils.formatting import (
     make_web_safe,
     is_proper_textual_annotation,
 )
-from codex.utils.label_cleaning import significant_diff_chars
 from codex.utils.parsing import tokenize
 from tests import TEST_DATA_ROOT_PATH, log_dev_url_for_root_ids, get_testing_neuron_db
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
@@ -535,26 +534,6 @@ class NeuronDataTest(TestCase):
             len(self.neuron_db.get_neuron_data(root_id="720575940624056624")), 5
         )
 
-    def test_no_garbage_labels(self):
-        for nd in self.neuron_db.neuron_data.values():
-            labels = nd["label"]
-            self.assertEqual(len(labels), len(set(labels)))
-            self.assertTrue(all(labels))
-            for lbl in labels:
-                self.assertFalse(lbl.startswith("72"), lbl)
-                for garbage in [
-                    "sorry",
-                    "wrong",
-                    "accident",
-                    "mistake",
-                    "error",
-                    "part of comprehensive neck connective tracing",
-                ]:
-                    self.assertFalse(
-                        garbage.lower() in lbl.lower(),
-                        f"{lbl} contains {garbage}, all labels: {labels}",
-                    )
-
     def test_thumbnails(self):
         # Run this first to collect existing skeleton root ids:
         # gsutil du gs://flywire-data/codex/skeleton_thumbnails | grep png | cut -d"/" -f 6 | cut -d "." -f 1 > static/raw_data/thumbnails_tmp.csv
@@ -587,66 +566,6 @@ class NeuronDataTest(TestCase):
                 continue
             num_vals = len([n[k] for n in self.neuron_db.neuron_data.values() if n[k]])
             self.assertGreater(num_vals / len(self.neuron_db.neuron_data), 0.85, k)
-
-    def test_labels_duplication(self):
-        self.assertTrue(significant_diff_chars("ba", "bfc"))
-        self.assertFalse(significant_diff_chars("ba:", "ba"))
-
-        seps = string.ascii_letters + string.digits + "_"
-
-        for nd in self.neuron_db.neuron_data.values():
-            labels = nd["label"]
-            if len(labels) > 1:
-                for i, lbl1 in enumerate(labels):
-                    for j, lbl2 in enumerate(labels):
-                        if j > i:
-                            self.assertTrue(
-                                significant_diff_chars(lbl1, lbl2), f"{lbl1} --> {lbl2}"
-                            )
-                            if len(lbl1) == len(lbl2):
-                                continue
-                            sl, ll = (
-                                (lbl1, lbl2) if len(lbl1) < len(lbl2) else (lbl2, lbl1)
-                            )
-                            if ll.startswith(sl):
-                                sep = ll[len(sl)]
-                                self.assertTrue(
-                                    sep in seps,
-                                    f"Separator '{sep}' breaks prefix: {lbl1} -> {lbl2}",
-                                )
-
-    def test_label_cleaning(self):
-        for nd in self.neuron_db.neuron_data.values():
-            labels = nd["label"]
-            self.assertEqual(len(labels), len(set(labels)))
-            self.assertTrue(all([len(lbl) > 1 for lbl in labels]), labels)
-            for lbl in labels:
-                lbllc = lbl.lower()
-                self.assertFalse(
-                    any(
-                        [
-                            b in lbllc
-                            for b in [
-                                "left",
-                                "right",
-                                "lhs",
-                                "rhs",
-                                "wrong",
-                            ]
-                        ]
-                    ),
-                    f"{nd['root_id']}: {labels}",
-                )
-                tokens = tokenize(lbllc)
-                self.assertFalse(
-                    any(
-                        [
-                            any([tk.endswith(s) for s in ["_l", "_r", "-l", "-r"]])
-                            for tk in tokens
-                        ]
-                    ),
-                    lbllc,
-                )
 
     def test_connection_filters(self):
         rid_list = list(self.neuron_db.neuron_data.keys())[:100]

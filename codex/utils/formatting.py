@@ -1,4 +1,6 @@
+import re
 import string
+from html import escape
 from math import floor, log10
 
 from codex.utils.parsing import tokenize, tokenize_and_fold_for_highlight
@@ -28,6 +30,50 @@ def make_web_safe(txt):
     return (
         "".join([WEB_SAFE_MAP.get(c, c) for c in txt]) if isinstance(txt, str) else txt
     )
+
+
+_MESSAGE_TAGS_ALLOWED = r"/?(?:b|br|i|small|ul|li)\s*/?>"
+_OTHER_TAG_START = re.compile(rf"<(?!{_MESSAGE_TAGS_ALLOWED})", re.IGNORECASE)
+
+
+def sanitize_message_html(message):
+    """Messages shown to users may carry the simple markup the app writes into them (bold, line breaks,
+    lists). Any other tag start is turned into text, so a message taken from a URL cannot inject scripts.
+    Existing character entities are left as they are."""
+    return _OTHER_TAG_START.sub("&lt;", str(message))
+
+
+def _share_caption(orphaned, total):
+    if orphaned and total and 100 * orphaned < total:
+        return "<1%"
+    return f"{min(100, round(100 * orphaned / total))}%"
+
+
+def orphan_completeness(nd):
+    """Caption for how much of a cell's synapses connect to orphaned synaptic sites (sites that belong to no
+    reconstructed cell), or None if there is nothing to say. Partner counts leave these sites out."""
+    if nd["is_aggregate"]:
+        return None
+    parts, any_orphaned = [], False
+    for direction in ("input", "output"):
+        total = nd[f"total_{direction}_synapses"]
+        orphaned = nd[f"orphan_{direction}_synapses"]
+        if not total:
+            continue
+        any_orphaned = any_orphaned or orphaned > 0
+        parts.append(
+            f"{_share_caption(min(orphaned, total), total)} of {direction} synapses "
+            f"({display(orphaned)} of {display(total)})"
+        )
+    if not parts:
+        return None
+    caption = "Orphaned sites hold " + ", ".join(parts) + "."
+    if any_orphaned:
+        caption += (
+            "<br><small>Cells and synapses at orphaned sites are left out of partner counts, "
+            "which understate the connectivity of the cell.</small>"
+        )
+    return caption
 
 
 def clean_display_name(txt):
@@ -116,18 +162,20 @@ def highlight_annotations(free_form_search_terms, terms_to_annotate):
 
         # now highlight the label string
         highlighted_term = ""
+        # the result is rendered as HTML, and terms are free text from the source project, so every
+        # piece of the term is escaped
         if not highlight_locations:
-            highlighted_term = trimmed_term_str
+            highlighted_term = escape(trimmed_term_str)
         else:
             for i, (class_name, start, end) in enumerate(highlight_locations):
                 if i == 0:
-                    highlighted_term += trimmed_term_str[:start]
+                    highlighted_term += escape(trimmed_term_str[:start])
                 else:
-                    highlighted_term += trimmed_term_str[
-                        highlight_locations[i - 1][2] : start
-                    ]
-                highlighted_term += f'<span class="{class_name}">{trimmed_term_str[start:end]}</span>'  # use the CSS class
-            highlighted_term += trimmed_term_str[end:]
+                    highlighted_term += escape(
+                        trimmed_term_str[highlight_locations[i - 1][2] : start]
+                    )
+                highlighted_term += f'<span class="{class_name}">{escape(trimmed_term_str[start:end])}</span>'  # use the CSS class
+            highlighted_term += escape(trimmed_term_str[end:])
         highlighted_terms[term_to_annotate] = highlighted_term
     return highlighted_terms
 

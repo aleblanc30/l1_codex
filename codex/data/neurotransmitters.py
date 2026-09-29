@@ -12,6 +12,15 @@ NEURO_TRANSMITTER_NAMES = {
 NT_UNKNOWN = "UNKNOWN"
 
 
+# Every value a connection can carry: the transmitters that can be predicted, then unknown. Lists that let a
+# user pick a transmitter use this, so that unknown (all connections, until a curated table exists) can be
+# picked too.
+NEURO_TRANSMITTER_CHOICES = {
+    **NEURO_TRANSMITTER_NAMES,
+    NT_UNKNOWN: "unknown (not yet determined)",
+}
+
+
 def lookup_nt_type(txt):
     if txt:
         if txt.upper() in NEURO_TRANSMITTER_NAMES:

@@ -11,6 +11,11 @@ from codex.data.catalog import (
     get_papers_file_columns,
     get_skeletons_file_columns,
 )
+from codex.data.network_derivatives import (  # noqa: F401 (re-exported)
+    HEATMAP_GROUP_BY_ATTRIBUTES,
+    NETWORK_GROUP_BY_ATTRIBUTES,
+    derive_connection_data,
+)
 from codex.data.neuron_data import NeuronDB
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 from codex.utils.formatting import clean_display_name, make_web_safe
@@ -27,10 +32,6 @@ NEURON_DATA_ATTRIBUTE_TYPES = {
     "skeleton_name": str,
     # optional mirror/twin cell (LR matching)
     "mirror_twin_root_id": int,
-    # community identification labels (none in the L1 data)
-    "label": list,
-    # generic badges for marking special cells (e.g. labeling candidates)
-    "marker": list,
     # shape-based similarity, cell id -> 1-digit score (none in the L1 data)
     "similar_cell_scores": dict,
     # neurotransmitter type info with prediction confidence scores
@@ -75,28 +76,13 @@ NEURON_DATA_ATTRIBUTE_TYPES = {
     "is_aggregate": int,
     "orphan_output_synapses": int,
     "orphan_input_synapses": int,
+    # Synapse totals in the whole dataset, whatever neuron set is shown
+    "total_input_synapses": int,
+    "total_output_synapses": int,
 }
 
 # Names come from the source project and are shown as they are apart from whitespace
 VERBATIM_ATTRIBUTES = {"group", "skeleton_name"}
-
-HEATMAP_GROUP_BY_ATTRIBUTES = [
-    "side",
-    "flow",
-    "nt_type",
-    "super_class",
-    "class",
-    "sub_class",
-]
-NETWORK_GROUP_BY_ATTRIBUTES = [
-    "side",
-    "flow",
-    "nt_type",
-    "super_class",
-    "class",
-    "sub_class",
-]
-
 
 def _check_header(rows, expected_columns, table):
     if not rows or list(rows[0]) != expected_columns:
@@ -201,12 +187,6 @@ def initialize_neuron_data(
 
     logger.debug("App initialization loading connections..")
     _check_header(connection_rows, get_connections_file_columns(), "connections")
-    input_neuropils = defaultdict(set)
-    output_neuropils = defaultdict(set)
-    input_cells = defaultdict(set)
-    output_cells = defaultdict(set)
-    input_synapses = defaultdict(int)
-    output_synapses = defaultdict(int)
     for r in connection_rows[1:]:
         from_node, to_node, neuropil, syn_count, nt_type = (
             int(r[0]),
@@ -221,67 +201,25 @@ def initialize_neuron_data(
             raise ValueError(f"Unknown neurotransmitter type in connection: {r}")
         if neuropil not in REGIONS:
             raise ValueError(f"Unknown region in connection: {r}")
-        input_cells[to_node].add(from_node)
-        output_cells[from_node].add(to_node)
-        input_neuropils[to_node].add(neuropil)
-        output_neuropils[from_node].add(neuropil)
-        input_synapses[to_node] += syn_count
-        output_synapses[from_node] += syn_count
         neuron_connection_rows.append(
             [from_node, to_node, neuropil, syn_count, nt_type]
         )
 
-    logger.debug("App initialization augmenting..")
-    for rid, nd in neuron_attributes.items():
-        nd["input_neuropils"] = sorted(input_neuropils[rid])
-        nd["output_neuropils"] = sorted(output_neuropils[rid])
-        nd["input_synapses"] = input_synapses[rid]
-        nd["output_synapses"] = output_synapses[rid]
-        nd["input_cells"] = len(input_cells[rid])
-        nd["output_cells"] = len(output_cells[rid])
-
-    logger.debug("App initialization calculating grouped counts..")
-    grouped_synapse_counts = {
-        attr: defaultdict(int) for attr in HEATMAP_GROUP_BY_ATTRIBUTES
-    }
-    grouped_connection_counts = {
-        attr: defaultdict(int) for attr in HEATMAP_GROUP_BY_ATTRIBUTES
-    }
-    grouped_reciprocal_connection_counts = {
-        attr: defaultdict(int) for attr in HEATMAP_GROUP_BY_ATTRIBUTES
-    }
-    connected_pairs = set()
-    # update synapse counts and collect connected pairs (de-duped across regions)
-    for r in neuron_connection_rows:
-        from_neuron = neuron_attributes[r[0]]
-        to_neuron = neuron_attributes[r[1]]
-        connected_pairs.add((r[0], r[1]))
-        for attr in HEATMAP_GROUP_BY_ATTRIBUTES:
-            from_group = from_neuron[attr]
-            to_group = to_neuron[attr]
-            grouped_synapse_counts[attr][(from_group, to_group)] += r[3]
-    # update connection counts
-    for p in connected_pairs:
-        from_neuron = neuron_attributes[p[0]]
-        to_neuron = neuron_attributes[p[1]]
-        for attr in HEATMAP_GROUP_BY_ATTRIBUTES:
-            from_group = from_neuron[attr]
-            to_group = to_neuron[attr]
-            grouped_connection_counts[attr][(from_group, to_group)] += 1
-    # update reciprocal connection counts
-    reciprocal_connections = set(
-        [p for p in connected_pairs if (p[1], p[0]) in connected_pairs]
-    )
-    for p in reciprocal_connections:
-        from_neuron = neuron_attributes[p[0]]
-        to_neuron = neuron_attributes[p[1]]
-        for attr in HEATMAP_GROUP_BY_ATTRIBUTES:
-            from_group = from_neuron[attr]
-            to_group = to_neuron[attr]
-            grouped_reciprocal_connection_counts[attr][(from_group, to_group)] += 1
-            grouped_reciprocal_connection_counts[attr][(to_group, from_group)] += 1
+    logger.debug("App initialization augmenting and calculating grouped counts..")
+    (
+        grouped_synapse_counts,
+        grouped_connection_counts,
+        grouped_reciprocal_connection_counts,
+        num_reciprocal_connections,
+        num_connected_pairs,
+    ) = derive_connection_data(neuron_attributes, neuron_connection_rows)
+    # Synapse totals of the whole dataset. Shares of orphaned synapses are relative to these, so they do
+    # not change when a neuron set restricts the connections.
+    for nd in neuron_attributes.values():
+        nd["total_input_synapses"] = nd["input_synapses"]
+        nd["total_output_synapses"] = nd["output_synapses"]
     logger.debug(
-        f"App initialization found {len(reciprocal_connections)} reciprocal connections out of {len(connected_pairs)}.."
+        f"App initialization found {num_reciprocal_connections} reciprocal connections out of {num_connected_pairs}.."
     )
 
     assign_names_from_annotations(neuron_attributes)
@@ -292,8 +230,6 @@ def initialize_neuron_data(
     return NeuronDB(
         neuron_attributes=neuron_attributes,
         neuron_connection_rows=neuron_connection_rows,
-        label_data=defaultdict(list),
-        labels_file_timestamp="?",
         grouped_synapse_counts=grouped_synapse_counts,
         grouped_connection_counts=grouped_connection_counts,
         grouped_reciprocal_connection_counts=grouped_reciprocal_connection_counts,

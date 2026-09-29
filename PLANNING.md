@@ -66,20 +66,20 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Phase 3: filtering
 
-- [ ] Attributes for node count, soma, papers, annotations, aggregate flag and orphan shares
-- [ ] Numeric operators (`>=`, `<=`) in the structured search
-- [ ] Advanced search controls for the new attributes
-- [ ] Global neuron-set filter with the Winding 2023 default and per-request aggregates
-- [ ] Skip aggregates in pathway search, motif search and reciprocal counts
-- [ ] Show the orphan share as a completeness indicator, with a note that degree counts understate connectivity
+- [x] Structured-search attributes for node count, soma, papers, annotations, aggregate flag and orphan shares (`node_count`, `has_soma`, `papers`, `annotations`, `is_aggregate`, `orphan_output_synapses`, `orphan_input_synapses`, `orphan_output_share`, `orphan_input_share`). A share is the orphan synapse count over the cell's synapse total in that direction, capped at 1
+- [x] Numeric operators (`>=` / `{gte}` and `<=` / `{lte}`) in the structured search. They apply to attributes flagged `numeric`, and `==` on those attributes compares numbers
+- [x] Advanced search controls for the new attributes: the dialog is generated from the attribute and operator tables. Checked in headless Chromium: the numeric operators offer the numeric attributes, `has_soma` and `is_aggregate` offer true and false, and a query with `>=` and `==` loads back into the dialog. The page layout could not be judged, because the stylesheets come from a CDN that the sandbox cannot reach
+- [x] Global neuron-set filter, default Winding et al. 2023. Choices are Winding, all skeletons, skeletons with a soma, and one set per publication (`codex/data/neuron_sets.py`). A request takes the set from the `neuron_set` URL parameter, else from the `neuron_set` cookie, else the default; the Neurons menu in the navigation bar sets the cookie through `/neuron_set`. `NeuronDataFactory.get` returns `NeuronDB.view(set)`, a database restricted to the set plus the orphan aggregates, whose partner counts and heatmap counts are recomputed (names and orphan shares keep their whole-dataset values, through `total_input_synapses` and `total_output_synapses`). A cell outside the set still has its page. Each view is built once, in about a second for the Winding set, and adds roughly 30 MB per 1,000 cells. Views are kept in a least-recently-used queue (`codex/data/view_cache.py`) with a budget of 5,000 cells outside the pinned default set (`CODEX_VIEW_CELL_BUDGET`, 0 for no limit); an evicted view is freed, because `NeuronDB` caches its method results on the instance (`instance_cache.py`) and the module-level caches keyed on a database are cleared on eviction
+- [x] Skip aggregates in pathway search, motif search and reciprocal counts (partner sets and synapse-weighted partners no longer contain aggregates, the reciprocal heatmap counts and the cell page count leave them out; their connection rows and cell-page tables are kept)
+- [x] The cell page shows the orphan share as a completeness indicator ("Orphaned synapses": share and counts of input and output synapses at orphaned sites), with a note that partner counts understate connectivity. Search results do not show it yet
 - [x] Free-text search matches words, word prefixes and substrings of skeleton names, cell types and paper names (`v'ada`, `MBON` and `Eichler` now find their cells), and a number that is a cell id finds that cell only
-- [ ] Make the raw annotations searchable through a structured attribute (they are deliberately left out of free-text search: 358,000 rows, many of them working notes)
-- [ ] Keep the aggregate nodes out of search results by default (a search for `A3_L` currently lists them first)
-- [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes)
-- [ ] Add the `group` attribute to the heatmap and network group-by lists, since flow, class and sub-class are empty
+- [x] Raw annotations are searchable through the structured attribute `annotations` (for example `annotations >> Left`), and stay out of free-text search: 358,000 rows, many of them working notes
+- [x] Aggregate nodes are left out of search results unless the query names them by id or by the `is_aggregate` attribute (`is_aggregate == true`)
+- [x] Audit of every place where names, cell types, annotations and query text are put into HTML strings or inline JavaScript (they contain quotes, `&`, `<` and `>`). Escaped: search highlighting and its fallback values, the include/exclude filter buttons (values go through `tojson`), the search hint button, the structured-search error messages, the "could not find any cells" messages, the cell names in the pathway length table, the cell page (name and classification values), the heatmap group headers, the chart tooltips, the network node popups, the coordinates page, and the `/error` page (URL-encoded on redirect, limited to simple markup). Read and left as they are because their `|safe` inputs are constants or numbers: `stats.html`, `path_lengths.html`, `neuropils.html`, `explore.html`, `cell_annotations_modal.html`. Each fix has a test with markup in the names (`test_html_escaping.py`, `test_html_escaping_pages.py`)
+- [x] `group` is in the heatmap and network group-by lists, since flow, class and sub-class are empty. The heatmap shows the 40 largest groups (`MAX_GROUPS_SHOWN`) and says so, because `group` has hundreds of values
 - [x] Hide the FlyWire community features: the leaderboard and labeling-log routes are no longer served, and the community labels column and modal, the `label` search attribute, the label sort options, the label statistics, the CSV label column and the labeling wording are gone (`tests/unit/test_community_features_hidden.py`)
-- [ ] Remove the code the hidden features left behind: the label methods of `NeuronDB`, the `label` and `marker` attributes, the `is_oss`-guarded annotation form and the label-cleaning module
-- [ ] Decide what to do with the motif search and statistics code that lists only the six known transmitters
+- [x] Removed the code the hidden features left behind: the label methods and label data of `NeuronDB`, the `label` and `marker` attributes, the label sort option and label column in network node texts, the `is_oss` flag with its template blocks (feedback and annotation forms), and the label-cleaning module. The typed-cell count on the home page counts cells with a cell type
+- [x] Decided: the choices that let a user pick a transmitter now include `UNKNOWN` (`NEURO_TRANSMITTER_CHOICES`): the motif search form and its validation, and the descriptions of the statistics chart. The six predicted transmitters stay listed first, so a curated table needs no code change
 
 ### Phase 4: neuroglancer viewer
 
@@ -96,7 +96,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Phase 5: tests and CI
 
-- [ ] Synthetic L1-style fixture under `tests/`
+- [x] Synthetic L1-style fixture under `tests/` (`tests/l1_fixture.py`: four cells including an orphan aggregate, in the export schema)
 - [ ] Rewrite the 34 unit tests that still assert FlyWire facts: `test_neuron_data.py` (26), `test_heatmaps.py` (2), `test_graph_algos.py` (2), `test_motif_search.py` (2), `test_connectivity.py`, `test_stats_utils.py` and `test_structured_search_filters.py` (1 each). `test_graph_algos.py` alone hard-codes 54 ids, and `test_annotations_web_safe` contradicts the verbatim-names decision
 - [ ] Mocked-pymaid test of the export script
 - [x] CI data step: `python -m codex.data.local_data_loader` now builds the database from the bundled export without any download
@@ -128,8 +128,8 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Setup for the exporter: `poetry install --with export`.
 - Trial export: `poetry run python scripts/export_l1.py --limit 50 --out-dir <dir> --cache-dir <dir>`.
 - Full export: the same command without `--limit`. It took roughly 15 to 20 minutes and resumes from the cache directory if interrupted.
-- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 156 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
-- The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change.
+- Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 423 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
+- The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change (the app exits with a message when the pickle does not match the code).
 - Packages needed to run the whole suite locally: Flask and user-agents. `nglui` did not build in the cloud environment, so `tests/app_client.py` stubs it when the real package cannot be imported. The client also serves as a smoke test of the pages against the L1 data.
 - The pathways page takes `source_cell_id` and `target_cell_id`, and returns an error without them.
 - The exporter has been run end to end only against the public server, with the throttle at its defaults.

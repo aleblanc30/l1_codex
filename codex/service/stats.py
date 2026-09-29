@@ -6,10 +6,15 @@ from codex.utils.graph_algos import reachable_node_counts
 from codex.utils import stats as stats_utils
 
 from codex import logger
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
-def stats_cached(filter_string, data_version, case_sensitive, whole_word):
+def stats_cached(
+    filter_string, data_version, case_sensitive, whole_word, neuron_set=None
+):
+    # neuron_set is part of the cache key: the database used below depends on the active neuron set
     neuron_db = NeuronDataFactory.instance().get(data_version)
     filtered_root_id_list = neuron_db.search(
         search_query=filter_string, case_sensitive=case_sensitive, word_match=whole_word

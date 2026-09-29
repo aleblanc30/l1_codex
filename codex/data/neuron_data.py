@@ -1,8 +1,16 @@
 from collections import defaultdict
-from functools import lru_cache
 from random import choice
 
 from codex.data.connections import Connections
+from codex.data.instance_cache import instance_cache
+from codex.data.network_derivatives import derive_connection_data
+from codex.data.neuron_sets import (
+    DEFAULT_NEURON_SET,
+    NEURON_SET_ALL,
+    build_neuron_sets,
+    resolve_neuron_set,
+)
+from codex.data.view_cache import ViewCache
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 from codex.data.search_index import SearchIndex
@@ -10,8 +18,12 @@ from codex.data.structured_search_filters import (
     make_structured_terms_predicate,
     apply_chaining_rule,
     parse_search_query,
+    structured_terms_reference_attributes,
 )
-from codex.configuration import MIN_NBLAST_SCORE_SIMILARITY
+from codex.configuration import (
+    MIN_NBLAST_SCORE_SIMILARITY,
+    NEURON_SET_VIEW_CELL_BUDGET,
+)
 from codex.utils.formatting import (
     display,
     percentage,
@@ -42,7 +54,6 @@ NEURON_SEARCH_LABEL_ATTRIBUTES = [
 # Attributes whose values are searchable by word prefix and by substring, and not only as whole labels.
 # Raw source annotations are left out on purpose (too many, too noisy). They can be searched by attribute.
 NEURON_SEARCH_TEXT_ATTRIBUTES = [
-    "label",
     "skeleton_name",
     "cell_type",
     "papers",
@@ -54,19 +65,23 @@ class NeuronDB(object):
         self,
         neuron_attributes,
         neuron_connection_rows,
-        label_data,
-        labels_file_timestamp,
         grouped_synapse_counts,
         grouped_connection_counts,
         grouped_reciprocal_connection_counts,
     ):
         self.neuron_data = neuron_attributes
         self.connections_ = Connections(neuron_connection_rows)
-        self.label_data = label_data
         self.grouped_synapse_counts = grouped_synapse_counts
         self.grouped_connection_counts = grouped_connection_counts
         self.grouped_reciprocal_connection_counts = grouped_reciprocal_connection_counts
-        self.meta_data = {"labels_file_timestamp": labels_file_timestamp}
+        # Aggregates of orphaned synaptic sites stand for no cell. They keep their connection rows, but they
+        # are left out of partner sets (pathways, motifs, similarity) and of search results unless asked for.
+        self.aggregate_ids = frozenset(
+            rid for rid, nd in self.neuron_data.items() if nd.get("is_aggregate")
+        )
+        # The neuron set this database shows. Databases for the other sets are derived from this one.
+        self.neuron_set_key = NEURON_SET_ALL
+        self.view_cache = self._new_view_cache()
 
         logger.debug("App initialization building search index..")
 
@@ -92,13 +107,65 @@ class NeuronDB(object):
             ]
         )
 
+    @staticmethod
+    def _new_view_cache():
+        return ViewCache(
+            max_cells=NEURON_SET_VIEW_CELL_BUDGET, pinned=[DEFAULT_NEURON_SET]
+        )
+
+    # Caches and locks are neither pickled nor shared between copies
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        state.pop("_instance_caches", None)
+        state.pop("view_cache", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.view_cache = self._new_view_cache()
+
+    @instance_cache
+    def neuron_sets(self):
+        return build_neuron_sets(self.neuron_data)
+
+    def view(self, neuron_set_key):
+        """The database restricted to a neuron set: its cells, the aggregates of orphaned sites, and
+        the connections between them. Partner counts and grouped counts are recomputed for the subset,
+        names and orphan shares stay as in the whole dataset."""
+        key = resolve_neuron_set(neuron_set_key, self.neuron_sets())
+        if key == NEURON_SET_ALL:
+            return self
+        neuron_set = self.neuron_sets()[key]
+        return self.view_cache.get(
+            key, len(neuron_set.ids), lambda: self._restricted_to(neuron_set)
+        )
+
+    def _restricted_to(self, neuron_set):
+        keep = set(neuron_set.ids) | self.aggregate_ids
+        neuron_attributes = {
+            rid: dict(nd) for rid, nd in self.neuron_data.items() if rid in keep
+        }
+        rows = [r for r in self.connections_.all_rows() if r[0] in keep and r[1] in keep]
+        grouped_synapses, grouped_connections, grouped_reciprocal, _, _ = (
+            derive_connection_data(neuron_attributes, rows)
+        )
+        view = NeuronDB(
+            neuron_attributes=neuron_attributes,
+            neuron_connection_rows=rows,
+            grouped_synapse_counts=grouped_synapses,
+            grouped_connection_counts=grouped_connections,
+            grouped_reciprocal_connection_counts=grouped_reciprocal,
+        )
+        view.neuron_set_key = neuron_set.key
+        return view
+
     def input_sets(self, min_syn_count=0):
         return self.input_output_partner_sets(min_syn_count)[0]
 
     def output_sets(self, min_syn_count=0):
         return self.input_output_partner_sets(min_syn_count)[1]
 
-    @lru_cache
+    @instance_cache
     def input_output_partner_sets(self, min_syn_count=0):
         ins, outs = self.input_output_partners_with_synapse_counts(
             min_syn_count=min_syn_count
@@ -107,20 +174,23 @@ class NeuronDB(object):
         outs = {k: set(v.keys()) for k, v in outs.items()}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def input_output_partners_with_synapse_counts(self, min_syn_count=0):
         ins, outs = self.connections_.input_output_partners_with_synapse_counts()
-        if min_syn_count:
+        aggregate_ids = self.aggregate_ids
+        if min_syn_count or aggregate_ids:
 
-            def apply_syn_threshold(syn_counts):
+            def real_partners(rid, syn_counts):
+                if rid in aggregate_ids:
+                    return {}
                 return {
                     rid_: cnt
                     for rid_, cnt in syn_counts.items()
-                    if cnt >= min_syn_count
+                    if rid_ not in aggregate_ids and cnt >= min_syn_count
                 }
 
-            ins = {k: apply_syn_threshold(v) for k, v in ins.items()}
-            outs = {k: apply_syn_threshold(v) for k, v in outs.items()}
+            ins = {k: real_partners(k, v) for k, v in ins.items()}
+            outs = {k: real_partners(k, v) for k, v in outs.items()}
 
         for rid in self.neuron_data.keys():
             if rid not in ins:
@@ -129,7 +199,7 @@ class NeuronDB(object):
                 outs[rid] = {}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def input_output_regions_with_synapse_counts(self):
         ins, outs = self.connections_.input_output_regions_with_synapse_counts()
         for rid in self.neuron_data.keys():
@@ -139,7 +209,7 @@ class NeuronDB(object):
                 outs[rid] = {}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def cell_connections(self, cell_id):
         return list(self.connections_.rows_for_cell(cell_id))
 
@@ -167,7 +237,7 @@ class NeuronDB(object):
                 )
             )
 
-    @lru_cache
+    @instance_cache
     def connections_up_down(self, cell_id, by_neuropil=False):
         try:
             cell_id = int(cell_id)
@@ -206,21 +276,17 @@ class NeuronDB(object):
     def num_connections(self):
         return self.connections_.num_connections()
 
-    @lru_cache
-    def num_labels(self):
-        return sum([len(nd["label"]) for nd in self.neuron_data.values()])
-
-    @lru_cache
-    def num_typed_or_identified_cells(self):
+    @instance_cache
+    def num_typed_cells(self):
         return len(
             [
                 nd
                 for nd in self.neuron_data.values()
-                if any([nd[attr] for attr in ["label", "cell_type"]])
+                if nd["cell_type"]
             ]
         )
 
-    @lru_cache
+    @instance_cache
     def unique_values(self, attr_name):
         vals = set()
         for nd in self.neuron_data.values():
@@ -231,7 +297,7 @@ class NeuronDB(object):
                     vals.add(nd[attr_name])
         return sorted(vals)
 
-    @lru_cache
+    @instance_cache
     def categories(self, top_values, for_attr_name=None):
         value_counts_dict = defaultdict(lambda: defaultdict(int))
         assigned_to_num_cells_dict = defaultdict(int)
@@ -245,7 +311,6 @@ class NeuronDB(object):
             "Hemilineage": "hemilineage",
             "Nerve": "nerve",
             "Cell Body Side": "side",
-            "Community Identification Label": "label",
             "Connectivity Tag": "connectivity_tag",
             "Max In/Out Neuropil": "group",
         }
@@ -310,7 +375,7 @@ class NeuronDB(object):
         ]
 
     # Returns value ranges for all attributes with not too many different values. Used for advanced search dropdowns.
-    @lru_cache
+    @instance_cache
     def dynamic_ranges(self, range_cardinality_cap=40):
         res = {}
         for dct in self.categories(top_values=range_cardinality_cap):
@@ -332,7 +397,7 @@ class NeuronDB(object):
             nd = {}
         return nd
 
-    @lru_cache
+    @instance_cache
     def get_similar_shape_cells(
         self,
         root_id,
@@ -356,7 +421,7 @@ class NeuronDB(object):
         scores = sorted(scores, key=lambda p: -p[1])[:top_k]
         return {p[0]: p[1] for p in scores}
 
-    @lru_cache
+    @instance_cache
     def get_similar_connectivity_cells(
         self,
         root_id,
@@ -452,55 +517,25 @@ class NeuronDB(object):
         nd = self.get_neuron_data(root_id)
         return nd["cell_type"]
 
-    def get_label_data(self, root_id):
-        root_id = int(root_id)
-        return self.label_data.get(root_id)
+    def _asks_for_aggregates(self, search_query):
+        # Aggregates are listed when the query names them by id or by the is_aggregate attribute
+        if not self.aggregate_ids or not search_query:
+            return False
+        if search_query.strip().isdigit():
+            return int(search_query) in self.aggregate_ids
+        _, _, structured_terms = parse_search_query(search_query)
+        return structured_terms_reference_attributes(
+            structured_terms, {"is_aggregate", "root_id"}
+        )
 
-    def label_data_for_ids(self, ids, user_filter=None, lab_filter=None):
-        if user_filter:
-            user_filter = user_filter.lower()
-        if lab_filter:
-            lab_filter = lab_filter.lower()
-
-        def filtered(label_list):
-            if user_filter:
-                label_list = [
-                    ld
-                    for ld in label_list
-                    if ld["user_name"] and user_filter in ld["user_name"].lower()
-                ]
-            if lab_filter:
-                label_list = [
-                    ld
-                    for ld in label_list
-                    if ld["user_affiliation"]
-                    and lab_filter in ld["user_affiliation"].lower()
-                ]
-            return label_list
-
-        res = {}
-        for r in ids:
-            flist = filtered(self.label_data[r])
-            if flist:
-                res[r] = flist
-        return res
-
-    def get_links(self, root_id):
-        nd = self.get_neuron_data(root_id)
-        links = []
-        for mrk in nd["marker"]:
-            if mrk.startswith("link:"):
-                links.append(mrk[len("link:") :])
-        return links
-
-    def cell_ids_with_label_data(self):
-        return list(self.label_data.keys())
-
-    def labels_ingestion_timestamp(self):
-        return self.meta_data["labels_file_timestamp"]
-
-    @lru_cache
+    @instance_cache
     def search(self, search_query, case_sensitive=False, word_match=False):
+        results = self._search(search_query, case_sensitive, word_match)
+        if self.aggregate_ids and not self._asks_for_aggregates(search_query):
+            results = [r for r in results if r not in self.aggregate_ids]
+        return results
+
+    def _search(self, search_query, case_sensitive, word_match):
         # A number that is the id of a cell finds that cell only. Ids are short and would otherwise
         # match numbers inside names.
         if search_query and search_query.strip().isdigit():

@@ -57,7 +57,7 @@
                       <label for="ntType{{edge}}"><small>Neurotransmitter Type</small></label>
                       <select class="form-control form-control-sm" id="ntType{{edge}}" name="ntType{{edge}}">
                         <option value="Any">Any</option>
-                        {% for neurotransmitter, neurotransmitter_name in NEURO_TRANSMITTER_NAMES.items() %}
+                        {% for neurotransmitter, neurotransmitter_name in NEURO_TRANSMITTER_CHOICES.items() %}
                         <option value="{{neurotransmitter}}" 
                         {% if query.get("ntType" + edge) == neurotransmitter %}
                           selected

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from functools import lru_cache
+from html import escape
 
 from flask import url_for
 
@@ -24,8 +25,10 @@ from codex.utils.formatting import (
     concat_labels,
     nanos_to_formatted_micros,
     display,
+    orphan_completeness,
 )
 from codex.utils.graph_algos import reachable_node_counts
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
 def connectivity_tag_links(root_id, connectivity_tag):
@@ -55,13 +58,14 @@ def connectivity_tag_links(root_id, connectivity_tag):
         return None
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def cached_cell_details(
     cell_names_or_id, root_id, neuron_db, data_version, reachability_stats
 ):
     nd = neuron_db.get_neuron_data(root_id=root_id)
     cell_attributes = {
-        "Name": nd["name"],
+        "Name": escape(nd["name"]),
         "Skeleton ID": f"{root_id}<br><small>"
         f'<a href="cell_coordinates/{root_id}?data_version={data_version}" target="_blank">Coordinates <i class="fa-solid fa-up-right-from-square"></i> </a>'
         "</small>",
@@ -72,6 +76,9 @@ def cached_cell_details(
         + f'" target="_blank">{display(nd["output_cells"])} out <i class="fa-solid fa-arrow-down"></i></a>'
         + f'<br><small><i class="fa-solid fa-arrow-up"></i> {display(nd["input_synapses"])} in &#183; '
         + f'{display(nd["output_synapses"])} out <i class="fa-solid fa-arrow-down"></i></small>',
+        "Orphaned synapses<br><small>not linked to a cell</small>": orphan_completeness(
+            nd
+        ),
         "NT Type": nd["nt_type"]
         + f' ({lookup_nt_type_name(nd["nt_type"])})'
         + (
@@ -106,7 +113,7 @@ def cached_cell_details(
         '<a href="" data-toggle="modal" data-target="#cellAnnotationsModal">'
         'info & credits <i class="fa-solid fa-up-right-from-square"></i></a></small>': concat_labels(
             [
-                f"{display(cl)}: <b>{', '.join([str(v) for v in nd[cl]]) if isinstance(nd[cl], list) else nd[cl]}</b>"
+                f"{display(cl)}: <b>{escape(', '.join([str(v) for v in nd[cl]]) if isinstance(nd[cl], list) else str(nd[cl]))}</b>"
                 for cl in [
                     "side",
                     "nerve",
@@ -174,7 +181,9 @@ def cached_cell_details(
         )
         if "reciprocal" in nd["connectivity_tag"]:
             up, dn = neuron_db.connections_up_down(root_id)
-            reciprocal_count = len(set(up).intersection(dn))
+            reciprocal_count = len(
+                set(up).intersection(dn) - neuron_db.aggregate_ids
+            )
             insert_related_cell_links(
                 f"reciprocal cells (both up- and downstream) with {MIN_SYN_THRESHOLD}+ synapses",
                 reciprocal_count,

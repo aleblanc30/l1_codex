@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from html import escape
 from datetime import datetime
 
 from flask import (
@@ -30,8 +31,9 @@ from codex.data.brain_regions import (
 )
 from codex.data.faq_qa_kb import FAQ_QA_KB
 from codex.data.neuron_data_factory import NeuronDataFactory
+from codex.data.neuron_sets import active_neuron_set
 from codex.data.neuron_data_initializer import NETWORK_GROUP_BY_ATTRIBUTES
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_CHOICES
 from codex.data.sorting import SORT_BY_OPTIONS, sort_search_results
 from codex.data.structured_search_filters import (
     OP_PATHWAYS,
@@ -82,6 +84,7 @@ def stats():
         data_version=data_version,
         case_sensitive=case_sensitive,
         whole_word=whole_word,
+        neuron_set=active_neuron_set(),
     )
     if num_items:
         logger.info(
@@ -156,7 +159,6 @@ def render_neuron_list(
 
     display_data = [neuron_db.get_neuron_data(i) for i in page_ids]
     highlighted_terms = {}
-    links = {}
     for nd in display_data:
         # Only highlight from free-form search tokens (and not structured search attributes)
         psq = parse_search_query(filter_string)
@@ -182,13 +184,11 @@ def render_neuron_list(
                 else:
                     terms_to_annotate.add(nd[attr_name])
         highlighted_terms.update(highlight_annotations(search_terms, terms_to_annotate))
-        links[nd["root_id"]] = neuron_db.get_links(nd["root_id"])
 
     return render_template(
         template_name_or_list=template_name,
         display_data=display_data,
         highlighted_terms=highlighted_terms,
-        links=links,
         # If num results is small enough to pass to browser, pass it to allow copying root IDs to clipboard.
         # Otherwise it will be available as downloadable file.
         root_ids_str=(
@@ -233,7 +233,6 @@ def _search_and_sort():
         query=filter_string,
         ids=filtered_root_id_list,
         output_sets=neuron_db.output_sets(),
-        label_count_getter=lambda x: len(neuron_db.get_neuron_data(x)["label"]),
         nt_type_getter=lambda x: neuron_db.get_neuron_data(x)["nt_type"],
         synapse_neuropil_count_getter=lambda x: len(
             neuron_db.get_neuron_data(x)["input_neuropils"]
@@ -396,7 +395,7 @@ def neuroglancer_url():
     # A single cell is shown centered on its soma (or root node)
     position = None
     if len(root_ids) == 1:
-        neuron_db = NeuronDataFactory.instance().get(data_version)
+        neuron_db = NeuronDataFactory.instance().get_unrestricted(data_version)
         if neuron_db.is_in_dataset(root_ids[0]):
             positions = neuron_db.get_neuron_data(root_ids[0])["position"]
             if positions:
@@ -454,9 +453,9 @@ def ngl_redirect_with_client_check(ngl_url):
 def cell_coordinates(cell_id):
     data_version = request.args.get("data_version", "")
     logger.info(f"Loading coordinates for cell {cell_id}, {data_version=}")
-    neuron_db = NeuronDataFactory.instance().get(data_version)
+    neuron_db = NeuronDataFactory.instance().get_unrestricted(data_version)
     nd = neuron_db.get_neuron_data(cell_id)
-    return f"<h2>Coordinates for {cell_id}</h2>" + "<br>".join(
+    return f"<h2>Coordinates for {escape(cell_id)}</h2>" + "<br>".join(
         [f"Nanometer coordinates: {c}" for c in nd["position"]]
     )
 
@@ -478,6 +477,11 @@ def cell_details():
             cell_names_or_id = f"name == {neuron_db.get_neuron_data(root_id)['name']}"
         else:
             logger.info(f"Generating cell detail page from search: '{cell_names_or_id}")
+            if str(cell_names_or_id).strip().isdigit():
+                # the page of a cell can be opened whatever the current neuron set is
+                neuron_db = NeuronDataFactory.instance().get_containing(
+                    int(cell_names_or_id), data_version
+                )
             root_ids = neuron_db.search(search_query=cell_names_or_id)
             if len(root_ids) == 1:
                 root_id = root_ids[0]
@@ -515,9 +519,14 @@ def pathways():
     neuron_db = NeuronDataFactory.instance().get(version=data_version)
     for rid in [source, target]:
         if not neuron_db.is_in_dataset(rid):
-            return render_error(
-                message=f"Cell {rid} is not in the dataset.", title="Cell not found"
-            )
+            if NeuronDataFactory.instance().get_unrestricted(data_version).is_in_dataset(rid):
+                message = (
+                    f"Cell {rid} is not in the selected set of neurons. "
+                    f"Choose another set in the Neurons menu, for example All skeletons."
+                )
+            else:
+                message = f"Cell {rid} is not in the dataset."
+            return render_error(message=message, title="Cell not found")
     root_ids = [source, target]
 
     layers, data_rows = pathway_chart_data_rows(
@@ -571,12 +580,12 @@ def path_length():
         if not root_ids_src:
             return render_error(
                 title="No matching source cells",
-                message=f"Could not find any cells matching '{source_cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(source_cell_names_or_ids)}'",
             )
         if not root_ids_target:
             return render_error(
                 title="No matching target cells",
-                message=f"Could not find any cells matching '{target_cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(target_cell_names_or_ids)}'",
             )
 
         if len(root_ids_src) > MAX_NODES_FOR_PATHWAY_ANALYSIS:
@@ -627,7 +636,7 @@ def path_length():
                 for j, val in enumerate(r):
                     if j == 0:
                         r[j] = (
-                            f'<a href="{url_for("app.search", filter_string="id == " + str(from_root_id))}">{neuron_db.get_neuron_data(from_root_id)["name"]}</a><br><small>{from_root_id}</small>'
+                            f'<a href="{url_for("app.search", filter_string="id == " + str(from_root_id))}">{escape(neuron_db.get_neuron_data(from_root_id)["name"])}</a><br><small>{from_root_id}</small>'
                         )
                     elif val > 0:
                         to_root_id = int(matrix[0][j])
@@ -647,7 +656,7 @@ def path_length():
                 if j > 0:
                     matrix[0][
                         j
-                    ] = f'<a href="{url_for("app.search", filter_string="id == " + str(val))}">{neuron_db.get_neuron_data(int(val))["name"]}</a><br><small>{val}</small>'
+                    ] = f'<a href="{url_for("app.search", filter_string="id == " + str(val))}">{escape(neuron_db.get_neuron_data(int(val))["name"])}</a><br><small>{val}</small>'
 
     info_text = (
         "With this tool you can specify one or more source cells + one or more target cells, set a "
@@ -767,7 +776,7 @@ def connectivity():
         if not root_ids:
             return render_error(
                 title="No matching cells found",
-                message=f"Could not find any cells matching '{cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(cell_names_or_ids)}'",
             )
         elif len(root_ids) == 1:
             # if only one match found, show some connections to it's partners (instead of lonely point)
@@ -952,7 +961,7 @@ def motifs():
     return render_template(
         "motif_search.html",
         regions=list(REGIONS.keys()),
-        NEURO_TRANSMITTER_NAMES=NEURO_TRANSMITTER_NAMES,
+        NEURO_TRANSMITTER_CHOICES=NEURO_TRANSMITTER_CHOICES,
         query=query,
         results=search_results,
         show_explainer=show_explainer,

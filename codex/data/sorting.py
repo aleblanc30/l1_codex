@@ -24,7 +24,6 @@ NBLAST_SCORE = "nblast_score"
 JACCARD_SIMILARITY = "jaccard_similarity"
 JACCARD_SIMILARITY_UPSTREAM = "jaccard_similarity_upstream"
 JACCARD_SIMILARITY_DOWNSTREAM = "jaccard_similarity_downstream"
-ITEM_COUNT = "item_count"
 
 SORTABLE_OPS = {
     OP_DOWNSTREAM: DOWNSTREAM_SYNAPSE_COUNT,
@@ -35,7 +34,6 @@ SORTABLE_OPS = {
     OP_SIMILAR_CONNECTIVITY: JACCARD_SIMILARITY,
     OP_SIMILAR_CONNECTIVITY_UPSTREAM: JACCARD_SIMILARITY_UPSTREAM,
     OP_SIMILAR_CONNECTIVITY_DOWNSTREAM: JACCARD_SIMILARITY_DOWNSTREAM,
-    None: ITEM_COUNT,
 }
 
 SORT_BY_OPTIONS = {
@@ -74,8 +72,6 @@ def infer_sort_by(query):
                 target_cell_id = part["lhs"]
             sort_by = f"{sort_type}:{target_cell_id}"
             logger.debug(f"Inferred sort by {sort_by} from query: {query}")
-        elif len(sortable_terms) == 0 and not free_form:
-            sort_by = f"{ITEM_COUNT}:label"
 
     return sort_by
 
@@ -84,7 +80,6 @@ def sort_search_results(
     query,
     ids,
     output_sets,
-    label_count_getter,
     nt_type_getter,
     synapse_neuropil_count_getter,
     size_getter,
@@ -147,9 +142,6 @@ def sort_search_results(
             parts = sort_by.split(":")
             if len(parts) != 2 or parts[0] not in SORTABLE_OPS.values():
                 raise ValueError(f"Unsupported sort_by parameter: {sort_by}")
-            if parts[0] == ITEM_COUNT:
-                ids = sorted(ids, key=lambda x: -label_count_getter(x))
-                return ids, None
 
             sort_by_target_cell_rid = int(parts[1])
 

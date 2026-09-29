@@ -66,7 +66,6 @@ def compile_network_html(
         def caption_getter(x):
             return f"{x} {projection_set_fractions[x] or '<1'}%"
 
-        label_getter = None
         class_getter = None
         nt_type_getter = None
 
@@ -86,9 +85,6 @@ def compile_network_html(
             else:
                 return name
 
-        def label_getter(x):
-            return neuron_db.get_neuron_data(x)["label"]
-
         def class_getter(x):
             return neuron_db.get_neuron_data(x)["class"]
 
@@ -107,7 +103,6 @@ def compile_network_html(
         connections_cap=connections_cap,
         name_getter=name_getter,
         caption_getter=caption_getter,
-        label_getter=label_getter,
         class_getter=class_getter,
         nt_type_getter=nt_type_getter,
         size_getter=size_getter,

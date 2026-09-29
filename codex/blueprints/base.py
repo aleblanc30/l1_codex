@@ -1,8 +1,10 @@
 import os
 from random import randint
+from urllib.parse import urlencode, urlsplit
 
 from flask import (
     Blueprint,
+    g,
     redirect,
     request,
     send_from_directory,
@@ -15,6 +17,14 @@ from codex.configuration import (
 )
 from codex.data.faq_qa_kb import FAQ_QA_KB
 from codex.data.neuron_data_factory import NeuronDataFactory
+from codex.data.neuron_sets import (
+    NEURON_SET_COOKIE_MAX_AGE,
+    NEURON_SET_PARAMETER,
+    activate_neuron_set,
+    active_neuron_set,
+    deactivate_neuron_set,
+    resolve_neuron_set,
+)
 from codex.data.versions import (
     DATA_SNAPSHOT_VERSION_DESCRIPTIONS,
     DEFAULT_DATA_SNAPSHOT_VERSION,
@@ -23,6 +33,7 @@ from codex.utils.formatting import (
     display,
     nanos_to_formatted_micros,
     percentage,
+    sanitize_message_html,
     truncate,
 )
 from codex import logger
@@ -64,8 +75,6 @@ jinja_env.globals["dropdown_items"] = dropdown_items
 jinja_env.globals["more_tabs"] = more_tabs
 jinja_env.globals["request"] = request
 
-# This flag disables the UI for features that won't work in the open source version of Codex
-jinja_env.globals["is_oss"] = True
 
 
 def render_template(template_name_or_list, **context):
@@ -73,6 +82,83 @@ def render_template(template_name_or_list, **context):
 
 
 base = Blueprint("base", __name__)
+
+NEURON_SET_COOKIE = NEURON_SET_PARAMETER
+
+
+@base.before_app_request
+def choose_neuron_set():
+    # A neuron_set parameter in the URL wins over the cookie, so that a link can carry the choice
+    requested = request.args.get(NEURON_SET_PARAMETER) or request.cookies.get(
+        NEURON_SET_COOKIE
+    )
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    g.neuron_set_token = activate_neuron_set(resolve_neuron_set(requested, available))
+
+
+@base.teardown_app_request
+def release_neuron_set(exc=None):
+    token = g.pop("neuron_set_token", None)
+    if token is not None:
+        deactivate_neuron_set(token)
+
+
+def safe_local_path(path):
+    """The path if it leads to a page of this site, else the home page. Guards redirects against
+    other hosts, scheme-relative URLs and header injection."""
+    if (
+        not path
+        or not path.startswith("/")
+        or path.startswith("//")
+        or "\\" in path
+        or any(ord(c) < 32 or ord(c) == 127 for c in path)
+    ):
+        return "/"
+    parts = urlsplit(path)
+    return path if not parts.scheme and not parts.netloc else "/"
+
+
+def neuron_set_selector():
+    """What the page needs to offer the choice of neuron set: options, the current one, and where to
+    return to after a change."""
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    current = active_neuron_set() or resolve_neuron_set(None, available)
+    remaining_args = [
+        (k, v) for k, v in request.args.items(multi=True) if k != NEURON_SET_PARAMETER
+    ]
+    here = request.path + ("?" + urlencode(remaining_args) if remaining_args else "")
+    return {
+        "current": current,
+        "options": [
+            {
+                "key": neuron_set.key,
+                "label": f"{neuron_set.label} ({display(len(neuron_set.ids))})",
+                "selected": neuron_set.key == current,
+            }
+            for neuron_set in available.values()
+        ],
+        "change_url": url_for("base.set_neuron_set"),
+        "return_to": here,
+    }
+
+
+jinja_env.globals["neuron_set_selector"] = neuron_set_selector
+
+
+@base.route("/neuron_set")
+def set_neuron_set():
+    value = request.args.get("value")
+    response = redirect(safe_local_path(request.args.get("next")))
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    if value in available:
+        response.set_cookie(
+            NEURON_SET_COOKIE,
+            value,
+            max_age=NEURON_SET_COOKIE_MAX_AGE,
+            samesite="Lax",
+            httponly=True,
+        )
+    return response
 
 
 @base.route("/favicon.ico")
@@ -106,8 +192,9 @@ def js(filename):
 
 @base.route("/error", methods=["GET", "POST"])
 def error():
-    message = request.args.get("message", "Unexpected error")
-    title = request.args.get("title", "Request failed")
+    # the message comes from the URL, so it is limited to simple markup
+    message = sanitize_message_html(request.args.get("message", "Unexpected error"))
+    title = sanitize_message_html(request.args.get("title", "Request failed"))
     logger.info(f"Loading Error page with {title=} and {message=}")
     back_button = request.args.get("back_button", 1, type=int)
     message_sent = False
@@ -219,21 +306,27 @@ def index(path):
             num_synapses=display(neuron_db.num_synapses()),
             num_connections=display(neuron_db.num_connections()),
             num_typed_or_identified_cells=display(
-                neuron_db.num_typed_or_identified_cells()
+                neuron_db.num_typed_cells()
             ),
             percent_typed_or_identified_cells=percentage(
-                neuron_db.num_typed_or_identified_cells(), neuron_db.num_cells()
+                neuron_db.num_typed_cells(), neuron_db.num_cells()
             ),
             default_version=DEFAULT_DATA_SNAPSHOT_VERSION,
             min_syn_threshold=MIN_SYN_THRESHOLD,
         )
 
 
+def error_page_url(message, title, back_button):
+    return "/error?" + urlencode(
+        {"message": message, "title": title, "back_button": back_button}
+    )
+
+
 def render_error(
     message="No details available.", title="Something went wrong", back_button=1
 ):
     logger.error(f"Redirecting to error page: {message=} {title=}")
-    return redirect(f"/error?message={message}&title={title}&back_button={back_button}")
+    return redirect(error_page_url(message, title, back_button))
 
 
 def render_info(title="Info", message="Operation complete.", back_button=1):

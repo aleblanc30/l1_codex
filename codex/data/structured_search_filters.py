@@ -1,3 +1,4 @@
+from html import escape
 from typing import Iterable
 
 from codex.data.brain_regions import (
@@ -27,6 +28,7 @@ class SearchAttribute(object):
         value_convertor=None,
         list_convertor=None,
         value_range=None,
+        numeric=False,
     ):
         self.description = description
         self.name = name
@@ -41,6 +43,32 @@ class SearchAttribute(object):
         self.value_convertor = value_convertor
         self.list_convertor = list_convertor or (lambda x: tokenize(x))
         self.value_range = value_range
+        self.numeric = numeric
+
+
+def _to_number(x):
+    number = float(x)
+    if number != number or number in (float("inf"), float("-inf")):
+        raise ValueError(f"'{x}' is not a finite number")
+    return int(number) if number == int(number) else number
+
+
+def _to_flag(x):
+    lowered = str(x).strip().lower()
+    if lowered in ("true", "yes", "1"):
+        return 1
+    if lowered in ("false", "no", "0"):
+        return 0
+    raise ValueError(f"'{x}' is not true or false")
+
+
+def _orphan_share(orphan_key, total_key):
+    # Synapses with orphaned sites are part of the cell's synapse total, so the share is at most 1
+    def getter(nd):
+        total = nd[total_key]
+        return min(1.0, nd[orphan_key] / total) if total else 0.0
+
+    return getter
 
 
 STRUCTURED_SEARCH_ATTRIBUTES = [
@@ -208,12 +236,69 @@ STRUCTURED_SEARCH_ATTRIBUTES = [
         alternative_names=["twin", "mirror", "mirror_twin"],
     ),
     SearchAttribute(
-        description="Generic cell markers",
-        name="marker",
+        description="Number of nodes of the skeleton, a measure of its size and completeness",
+        name="node_count",
+        alternative_names=["nodes"],
+        value_convertor=_to_number,
+        numeric=True,
+    ),
+    SearchAttribute(
+        description="Whether the skeleton has a soma (true / false)",
+        name="has_soma",
+        alternative_names=["soma"],
+        value_convertor=_to_flag,
+        value_range=["true", "false"],
+    ),
+    SearchAttribute(
+        description="Publications that reconstructed the cell",
+        name="papers",
+        alternative_names=["paper", "publication", "publications"],
+    ),
+    SearchAttribute(
+        description="Raw annotations of the cell in the source project",
+        name="annotations",
+        alternative_names=["annotation"],
+    ),
+    SearchAttribute(
+        description="Whether the cell is an aggregate of synaptic sites that belong to no reconstructed cell "
+        "(true / false). Aggregates are left out of search results unless asked for",
+        name="is_aggregate",
+        alternative_names=["aggregate", "orphan_aggregate"],
+        value_convertor=_to_flag,
+        value_range=["true", "false"],
+    ),
+    SearchAttribute(
+        description="Number of the cell's output synapses that go to orphaned synaptic sites",
+        name="orphan_output_synapses",
+        value_convertor=_to_number,
+        numeric=True,
+    ),
+    SearchAttribute(
+        description="Number of the cell's input synapses that come from orphaned synaptic sites",
+        name="orphan_input_synapses",
+        value_convertor=_to_number,
+        numeric=True,
+    ),
+    SearchAttribute(
+        description="Share (0 to 1) of the cell's output synapses that go to orphaned synaptic sites",
+        name="orphan_output_share",
+        value_getter=_orphan_share("orphan_output_synapses", "total_output_synapses"),
+        value_convertor=_to_number,
+        numeric=True,
+    ),
+    SearchAttribute(
+        description="Share (0 to 1) of the cell's input synapses that come from orphaned synaptic sites",
+        name="orphan_input_share",
+        value_getter=_orphan_share("orphan_input_synapses", "total_input_synapses"),
+        value_convertor=_to_number,
+        numeric=True,
     ),
 ]
 
 SEARCH_ATTRIBUTE_NAMES = [a.name for a in STRUCTURED_SEARCH_ATTRIBUTES]
+NUMERIC_SEARCH_ATTRIBUTE_NAMES = [
+    a.name for a in STRUCTURED_SEARCH_ATTRIBUTES if a.numeric
+]
 
 
 def closest_attribute_by_name(attr_name):
@@ -231,6 +316,8 @@ def closest_attribute_by_name(attr_name):
 # Structured search operators
 OP_EQUAL = "{equal}"
 OP_NOT_EQUAL = "{not_equal}"
+OP_GREATER_EQUAL = "{gte}"
+OP_LESS_EQUAL = "{lte}"
 OP_STARTS_WITH = "{starts_with}"
 OP_CONTAINS = "{contains}"
 OP_NOT_CONTAINS = "{not_contains}"
@@ -337,6 +424,24 @@ STRUCTURED_SEARCH_OPERATORS = [
         lhs_description="Attribute",
         lhs_range=SEARCH_ATTRIBUTE_NAMES,
         rhs_description="Value",
+    ),
+    BinarySearchOperator(
+        name=OP_GREATER_EQUAL,
+        shorthand=">=",
+        description="Binary, numeric LHS attribute of the cell is greater than or equal to RHS number (e.g., node_count {gte} 1000)",
+        lhs_description="Numeric attribute",
+        lhs_range=NUMERIC_SEARCH_ATTRIBUTE_NAMES,
+        rhs_description="Number",
+        rhs_force_text="true",
+    ),
+    BinarySearchOperator(
+        name=OP_LESS_EQUAL,
+        shorthand="<=",
+        description="Binary, numeric LHS attribute of the cell is less than or equal to RHS number (e.g., node_count {lte} 1000)",
+        lhs_description="Numeric attribute",
+        lhs_range=NUMERIC_SEARCH_ATTRIBUTE_NAMES,
+        rhs_description="Number",
+        rhs_force_text="true",
     ),
     BinarySearchOperator(
         name=OP_STARTS_WITH,
@@ -511,18 +616,18 @@ def _match_list_of_neuropils(txt):
 
 def _raise_unsupported_attr_for_structured_search(attr_name, closest_attr_name):
     raise_malformed_structured_search_query(
-        f"Attribute <b>{attr_name}</b> is not recognized - closest match is {closest_attr_name}. "
-        f"Possible solutions:<br>- correct typos in <b>{attr_name}</b>, or try searching by one of the supported "
+        f"Attribute <b>{escape(attr_name)}</b> is not recognized - closest match is {closest_attr_name}. "
+        f"Possible solutions:<br>- correct typos in <b>{escape(attr_name)}</b>, or try searching by one of the supported "
         f"attributes: {', '.join(SEARCH_ATTRIBUTE_NAMES)}"
     )
 
 
 def _raise_invalid_value_for_structured_search(attr_name, value, valid_values):
-    msg = f"'{value}' is not a valid value for  <b>{attr_name}</b>."
+    msg = f"'{escape(str(value))}' is not a valid value for  <b>{escape(attr_name)}</b>."
     if valid_values:
         msg += (
             " Valid values are:<ul>"
-            + "".join([f"<li>{v}</li>" for v in valid_values])
+            + "".join([f"<li>{escape(str(v))}</li>" for v in valid_values])
             + "</ul>"
         )
     raise_malformed_structured_search_query(msg)
@@ -563,6 +668,20 @@ def _make_comparison_predicate(lhs, rhs, op, case_sensitive):
         _raise_invalid_value_for_structured_search(
             attr_name=search_attr.name, value=rhs, valid_values=search_attr.value_range
         )
+
+    if op in (OP_GREATER_EQUAL, OP_LESS_EQUAL) and not search_attr.numeric:
+        raise_malformed_structured_search_query(
+            f"Operator '{op}' compares numbers, and <b>{search_attr.name}</b> is not a numeric attribute. "
+            f"Numeric attributes are: {', '.join(NUMERIC_SEARCH_ATTRIBUTE_NAMES)}"
+        )
+
+    if search_attr.numeric and op in (OP_EQUAL, OP_GREATER_EQUAL, OP_LESS_EQUAL):
+        compare = {
+            OP_EQUAL: lambda v: v == rhs,
+            OP_GREATER_EQUAL: lambda v: v >= rhs,
+            OP_LESS_EQUAL: lambda v: v <= rhs,
+        }[op]
+        return lambda nd: compare(search_attr.value_getter(nd))
 
     def op_checker(val):
         str_rhs = str(rhs)
@@ -607,7 +726,13 @@ def _make_predicate(
     op = structured_term["op"]
     rhs = structured_term["rhs"]
 
-    if op in [OP_EQUAL, OP_STARTS_WITH, OP_CONTAINS]:
+    if op in [
+        OP_EQUAL,
+        OP_STARTS_WITH,
+        OP_CONTAINS,
+        OP_GREATER_EQUAL,
+        OP_LESS_EQUAL,
+    ]:
         return _make_comparison_predicate(
             lhs=lhs,
             rhs=rhs,
@@ -683,7 +808,7 @@ def _make_predicate(
             return lambda x: x["root_id"] in target_rid_set
         except ValueError as e:
             raise_malformed_structured_search_query(
-                f"Invalid cell id '{rhs}' in operator '{op}', error: {e}"
+                f"Invalid cell id '{escape(str(rhs))}' in operator '{op}', error: {escape(str(e))}"
             )
     elif op in [
         OP_SIMILAR_CONNECTIVITY,
@@ -717,7 +842,7 @@ def _make_predicate(
             return lambda x: x["root_id"] in target_rid_dict
         except ValueError as e:
             raise_malformed_structured_search_query(
-                f"Invalid cell id '{rhs}' in operator '{op}', error: {e}"
+                f"Invalid cell id '{escape(str(rhs))}' in operator '{op}', error: {escape(str(e))}"
             )
     elif op == OP_PATHWAYS:
         pathway_distance_map = pathways(
@@ -816,7 +941,7 @@ def _parse_search_terms(terms):
                         continue
 
         raise_malformed_structured_search_query(
-            f"Too many search operators in : {term}"
+            f"Too many search operators in : {escape(term)}"
         )
 
     return free_form, structured
@@ -862,6 +987,37 @@ def parse_search_query(search_query):
     chaining_rule, terms = _parse_chained_search_query(search_query)
     free_form, structured = _parse_search_terms(terms)
     return chaining_rule, free_form, structured
+
+
+_OPS_WITH_ATTRIBUTE_ON_LHS = [
+    OP_EQUAL,
+    OP_NOT_EQUAL,
+    OP_STARTS_WITH,
+    OP_CONTAINS,
+    OP_NOT_CONTAINS,
+    OP_IN,
+    OP_NOT_IN,
+    OP_GREATER_EQUAL,
+    OP_LESS_EQUAL,
+]
+
+
+def structured_terms_reference_attributes(structured_terms, attribute_names):
+    """True if any structured term names one of the attributes (by its name or an alternative name)."""
+    for term in structured_terms:
+        op = term["op"]
+        if op in (OP_HAS, OP_NOT):
+            name = term.get("rhs")
+        elif op in _OPS_WITH_ATTRIBUTE_ON_LHS:
+            name = term.get("lhs")
+        else:
+            continue
+        if not name:
+            continue
+        edit_dist, attr = closest_attribute_by_name(name)
+        if edit_dist == 0 and attr.name in attribute_names:
+            return True
+    return False
 
 
 def get_advanced_search_data(current_query):
