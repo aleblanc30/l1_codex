@@ -87,9 +87,9 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [x] EM image: the viewer is 3D only (skeletons inside the CNS outline), with no image layer
 - [x] Skeletons are exported in neuroglancer's precomputed skeleton format (`scripts/export_l1_skeletons.py`, simplified with a 200 nm tolerance, which keeps about 11% of the nodes) and load in real neuroglancer
 - [x] The CNS outline and the 26 segment volumes are exported as neuroglancer meshes (`scripts/export_l1_meshes.py`, 708 KB)
-- [x] Hosting: the files live in this public repository (`data/l1_skeletons`, `data/l1_meshes`) and are read from `raw.githubusercontent.com`. Links use the public neuroglancer instance `neuroglancer-demo.appspot.com`. `CODEX_DATA_REF`, `CODEX_DATA_HOST_URL` and `CODEX_NEUROGLANCER_URL` override the branch, the data host and the neuroglancer deployment
+- [x] Hosting: the files live in this public repository (`data/l1_skeletons`, `data/l1_meshes`) and are published to GitHub Pages by `.github/workflows/pages.yml`. Links use the public neuroglancer instance `neuroglancer-demo.appspot.com`. `CODEX_DATA_HOST_URL` and `CODEX_NEUROGLANCER_URL` override the data host and the neuroglancer deployment (a branch that is not merged yet can be tried through `https://raw.githubusercontent.com/aleblanc30/l1_codex/<branch>`)
 - [x] URL builders in `codex/utils/nglui.py` rewritten for L1 (no `nglui` dependency any more), the FlyWire-named routes renamed (`neuroglancer_url`, `search_results_neuroglancer_url`, `neuroglancer_neuropil_url`), a single cell centers on its soma, and the skeleton thumbnails, the SWC download and the FlyWire links are gone
-- [x] The links were checked in real neuroglancer (headless Chromium) against the pushed branch on GitHub: the cells view and the regions view both render, and the segment list shows the CATMAID names of all 5,013 neurons. `CODEX_DATA_REF` must be set to the branch until it is merged, because the default is `main`
+- [x] The links were checked in real neuroglancer (headless Chromium) against the pushed branch on GitHub: the cells view and the regions view both render, and the segment list shows the CATMAID names of all 5,013 neurons. The Pages site does not exist until the workflow has run on `main`, so until then `CODEX_DATA_HOST_URL` must point at the raw files of the branch
 - [x] Camera: the scene opens on a side view of the whole CNS (rotated 90 degrees around x, scale 300,000)
 - [ ] Look of the skeletons (line width, colors) and of the CNS outline, once real users have tried it
 - [ ] Offer an SWC download again from the skeleton data, if wanted
@@ -105,7 +105,8 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 - [x] Docker image (`Dockerfile`, `.dockerignore`) that runs the app with gunicorn on the port in `PORT`, with the database built when the image is built. The image is 254 MB, uses about 170 MB of memory, and was built and run locally (in this sandbox the build needed the proxy CA for pip, which a normal host does not)
 - [x] Render blueprint (`render.yaml`) for a free web service that sleeps when idle, with a generated `FLASK_SECRET_KEY`, and a Deployment section in the README
-- [ ] Merge to `main` so that the data files and the default `CODEX_DATA_REF` line up
+- [x] GitHub Actions workflow that publishes the skeleton and mesh files to GitHub Pages (its assemble step was run locally; the workflow itself has not run on GitHub). The 27 mesh manifests with a colon in their name (`<id>:0`, required by neuroglancer) are kept in the repository, which Git on Windows cannot check out
+- [ ] Merge to `main`, and in the repository settings choose GitHub Actions as the Pages source (one time), then run the workflow and check `https://aleblanc30.github.io/l1_codex/data/l1_skeletons/info`
 - [ ] Create the service on Render from the blueprint, and check the first request after a sleep (the free tier's current terms and limits were not checked)
 - [ ] Decide on a domain name, if one is wanted
 

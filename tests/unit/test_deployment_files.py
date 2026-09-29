@@ -37,9 +37,34 @@ class DeploymentFilesTest(TestCase):
         self.assertRegex(blueprint, r"key: FLASK_SECRET_KEY\s+generateValue: true")
         self.assertIn("plan: free", blueprint)
         self.assertIn("runtime: docker", blueprint)
-        self.assertRegex(blueprint, r"key: CODEX_DATA_REF\s+value: main")
+        # the viewer data comes from GitHub Pages, so there is no branch to configure
+        self.assertNotIn("CODEX_DATA_REF", blueprint)
+
+    def test_pages_workflow_publishes_the_neuroglancer_data_on_pushes_to_main(self):
+        workflow = read(".github/workflows/pages.yml")
+        self.assertRegex(workflow, r"branches:\s*\n\s*- main")
+        self.assertRegex(workflow, r"pages:\s*write")
+        self.assertRegex(workflow, r"id-token:\s*write")
+        self.assertIn("actions/upload-pages-artifact", workflow)
+        self.assertIn("actions/deploy-pages", workflow)
+        self.assertIn("workflow_dispatch", workflow)
+
+    def test_pages_workflow_keeps_the_data_path_the_viewer_expects(self):
+        workflow = read(".github/workflows/pages.yml")
+        self.assertIn("site/data", workflow)
+        self.assertIn("data/l1_skeletons", workflow)
+        self.assertIn("data/l1_meshes", workflow)
+        self.assertIn(".nojekyll", workflow)
+        self.assertRegex(workflow, r"path:\s*site")
+
+    def test_pages_workflow_only_runs_when_the_published_files_change(self):
+        workflow = read(".github/workflows/pages.yml")
+        self.assertIn("data/l1_skeletons/**", workflow)
+        self.assertIn("data/l1_meshes/**", workflow)
 
     def test_readme_explains_the_deployment(self):
         readme = read("README.md")
         self.assertIn("Deployment", readme)
         self.assertIn("FLASK_SECRET_KEY", readme)
+        self.assertIn("GitHub Pages", readme)
+        self.assertNotIn("CODEX_DATA_REF", readme)

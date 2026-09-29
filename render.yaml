@@ -8,6 +8,3 @@ services:
     envVars:
       - key: FLASK_SECRET_KEY
         generateValue: true
-      # Branch or tag that the neuroglancer links read the skeleton and mesh files from
-      - key: CODEX_DATA_REF
-        value: main

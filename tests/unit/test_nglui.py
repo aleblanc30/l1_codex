@@ -1,7 +1,10 @@
+import importlib
 import json
+import os
 import random
 import urllib.parse
 from unittest import TestCase
+from unittest.mock import patch
 
 from codex.data.brain_regions import COLORS, REGIONS
 from codex.utils import nglui
@@ -18,11 +21,30 @@ def layers_by_name(state):
 class DefaultsTest(TestCase):
     def test_default_hosts(self):
         self.assertEqual("https://neuroglancer-demo.appspot.com", nglui.NEUROGLANCER_URL)
-        base = "https://raw.githubusercontent.com/aleblanc30/l1_codex/"
-        self.assertTrue(nglui.SKELETONS_URL.startswith(base))
-        self.assertTrue(nglui.SKELETONS_URL.endswith("/data/l1_skeletons"))
-        self.assertTrue(nglui.MESHES_URL.startswith(base))
-        self.assertTrue(nglui.MESHES_URL.endswith("/data/l1_meshes"))
+        # published by the GitHub Pages workflow (.github/workflows/pages.yml)
+        self.assertEqual(
+            "https://aleblanc30.github.io/l1_codex/data/l1_skeletons", nglui.SKELETONS_URL
+        )
+        self.assertEqual(
+            "https://aleblanc30.github.io/l1_codex/data/l1_meshes", nglui.MESHES_URL
+        )
+
+    def test_hosts_can_be_overridden_by_the_environment(self):
+        overrides = {
+            "CODEX_DATA_HOST_URL": "https://raw.githubusercontent.com/aleblanc30/l1_codex/some-branch/",
+            "CODEX_NEUROGLANCER_URL": "https://ngl.example.org/",
+        }
+        try:
+            with patch.dict(os.environ, overrides):
+                importlib.reload(nglui)
+                self.assertEqual(
+                    "https://raw.githubusercontent.com/aleblanc30/l1_codex/some-branch/data/l1_skeletons",
+                    nglui.SKELETONS_URL,
+                )
+                self.assertEqual("https://ngl.example.org", nglui.NEUROGLANCER_URL)
+        finally:
+            importlib.reload(nglui)
+        self.assertEqual("https://neuroglancer-demo.appspot.com", nglui.NEUROGLANCER_URL)
 
     def test_cns_volume(self):
         self.assertEqual(22, nglui.CNS_VOLUME_ID)

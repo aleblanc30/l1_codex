@@ -5,10 +5,11 @@ scene after "#!" and neuroglancer loads the data it names straight from the URLs
 description. The scene here is 3D only: skeletons of the selected cells inside the outline of the
 nervous system (there is no EM image layer, because neuroglancer cannot read CATMAID tile stacks).
 
-The skeleton and mesh files are served from this repository (data/l1_skeletons and data/l1_meshes,
-see scripts/export_l1_skeletons.py and scripts/export_l1_meshes.py). Set CODEX_DATA_REF to use another
-branch or tag, CODEX_DATA_HOST_URL for another host, and CODEX_NEUROGLANCER_URL for another
-neuroglancer deployment.
+The skeleton and mesh files (data/l1_skeletons and data/l1_meshes, see scripts/export_l1_skeletons.py
+and scripts/export_l1_meshes.py) are published to GitHub Pages by .github/workflows/pages.yml. Set
+CODEX_DATA_HOST_URL to read them from another host, for example the raw files of a branch that has not
+been merged (https://raw.githubusercontent.com/aleblanc30/l1_codex/<branch>), and CODEX_NEUROGLANCER_URL
+to use another neuroglancer deployment.
 """
 
 import json
@@ -22,9 +23,7 @@ NEUROGLANCER_URL = os.environ.get(
     "CODEX_NEUROGLANCER_URL", "https://neuroglancer-demo.appspot.com"
 ).rstrip("/")
 _DATA_HOST_URL = os.environ.get(
-    "CODEX_DATA_HOST_URL",
-    "https://raw.githubusercontent.com/aleblanc30/l1_codex/"
-    + os.environ.get("CODEX_DATA_REF", "main"),
+    "CODEX_DATA_HOST_URL", "https://aleblanc30.github.io/l1_codex"
 ).rstrip("/")
 SKELETONS_URL = f"{_DATA_HOST_URL}/data/l1_skeletons"
 MESHES_URL = f"{_DATA_HOST_URL}/data/l1_meshes"

@@ -57,7 +57,9 @@ Navigate to [localhost:5000](http://localhost:5000)
 
 Codex is a Flask application, so it needs a host that runs Python. GitHub Pages only serves static
 files, and is used here only for the neuroglancer data (`data/l1_skeletons` and `data/l1_meshes`), which
-the 3D viewer links read from `raw.githubusercontent.com`.
+the 3D viewer reads directly from the visitor's browser. The workflow `.github/workflows/pages.yml`
+publishes these files to `https://<user>.github.io/<repository>/data/` whenever they change on `main`.
+One-time setup: in the repository settings, under Pages, choose GitHub Actions as the source.
 
 The app needs about 200 MB of memory and starts in under a second. The repository contains a
 `Dockerfile` that runs it with gunicorn, and a `render.yaml` for [Render](https://render.com), whose free
@@ -69,8 +71,9 @@ web services sleep when idle and wake on the next request:
 Any other host that runs Docker images works the same way: set `FLASK_SECRET_KEY` to a random secret and
 give the container the port to listen on in `PORT`. Optional settings:
 
-- `CODEX_DATA_REF`: branch or tag that the viewer links read the skeleton and mesh files from (default `main`)
-- `CODEX_DATA_HOST_URL`: another host for those files
+- `CODEX_DATA_HOST_URL`: where the viewer reads the skeleton and mesh files from (default: the Pages site of
+  this repository). To try a branch before it is merged, use
+  `https://raw.githubusercontent.com/<user>/<repository>/<branch>`
 - `CODEX_NEUROGLANCER_URL`: another neuroglancer deployment (default: the public demo instance)
 - `CODEX_DATA_URL`: base URL of hosted raw data files, if they should not come from the repository
 
