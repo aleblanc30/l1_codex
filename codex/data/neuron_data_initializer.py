@@ -268,9 +268,15 @@ def initialize_neuron_data(
             from_group = from_neuron[attr]
             to_group = to_neuron[attr]
             grouped_connection_counts[attr][(from_group, to_group)] += 1
-    # update reciprocal connection counts
+    # update reciprocal connection counts, leaving out aggregates of orphaned sites
     reciprocal_connections = set(
-        [p for p in connected_pairs if (p[1], p[0]) in connected_pairs]
+        [
+            p
+            for p in connected_pairs
+            if (p[1], p[0]) in connected_pairs
+            and not neuron_attributes[p[0]]["is_aggregate"]
+            and not neuron_attributes[p[1]]["is_aggregate"]
+        ]
     )
     for p in reciprocal_connections:
         from_neuron = neuron_attributes[p[0]]

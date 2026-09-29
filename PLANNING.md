@@ -66,16 +66,16 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Phase 3: filtering
 
-- [ ] Attributes for node count, soma, papers, annotations, aggregate flag and orphan shares
-- [ ] Numeric operators (`>=`, `<=`) in the structured search
-- [ ] Advanced search controls for the new attributes
+- [x] Structured-search attributes for node count, soma, papers, annotations, aggregate flag and orphan shares (`node_count`, `has_soma`, `papers`, `annotations`, `is_aggregate`, `orphan_output_synapses`, `orphan_input_synapses`, `orphan_output_share`, `orphan_input_share`). A share is the orphan synapse count over the cell's synapse total in that direction, capped at 1
+- [x] Numeric operators (`>=` / `{gte}` and `<=` / `{lte}`) in the structured search. They apply to attributes flagged `numeric`, and `==` on those attributes compares numbers
+- [ ] Advanced search controls for the new attributes (the dialog is generated from the attribute and operator tables, so the new entries should appear; not yet looked at in a browser)
 - [ ] Global neuron-set filter with the Winding 2023 default and per-request aggregates
-- [ ] Skip aggregates in pathway search, motif search and reciprocal counts
+- [x] Skip aggregates in pathway search, motif search and reciprocal counts (partner sets and synapse-weighted partners no longer contain aggregates, the reciprocal heatmap counts and the cell page count leave them out; their connection rows and cell-page tables are kept)
 - [ ] Show the orphan share as a completeness indicator, with a note that degree counts understate connectivity
 - [x] Free-text search matches words, word prefixes and substrings of skeleton names, cell types and paper names (`v'ada`, `MBON` and `Eichler` now find their cells), and a number that is a cell id finds that cell only
-- [ ] Make the raw annotations searchable through a structured attribute (they are deliberately left out of free-text search: 358,000 rows, many of them working notes)
-- [ ] Keep the aggregate nodes out of search results by default (a search for `A3_L` currently lists them first)
-- [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes)
+- [x] Raw annotations are searchable through the structured attribute `annotations` (for example `annotations >> Left`), and stay out of free-text search: 358,000 rows, many of them working notes
+- [x] Aggregate nodes are left out of search results unless the query names them by id or by the `is_aggregate` attribute (`is_aggregate == true`)
+- [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes). Done so far: search highlighting, the include/exclude filter buttons (values are passed with `tojson`), the search hint button, the structured-search error messages, the three "could not find any cells" messages, the cell names in the pathway length table, and the `/error` page (URL-encoded on redirect, and limited to simple markup). Still to check: `|safe` values in `cell_details.html`, `heatmaps.html`, `stats.html`, `path_lengths.html` and `neuropils.html`, the `title` attributes and the `innerHTML` assignments in `network_graph.html` (`nodeData.title`, `edgeData.title`, built in `graph_vis.py`), and `cell_annotations_modal.html`
 - [ ] Add the `group` attribute to the heatmap and network group-by lists, since flow, class and sub-class are empty
 - [x] Hide the FlyWire community features: the leaderboard and labeling-log routes are no longer served, and the community labels column and modal, the `label` search attribute, the label sort options, the label statistics, the CSV label column and the labeling wording are gone (`tests/unit/test_community_features_hidden.py`)
 - [ ] Remove the code the hidden features left behind: the label methods of `NeuronDB`, the `label` and `marker` attributes, the `is_oss`-guarded annotation form and the label-cleaning module

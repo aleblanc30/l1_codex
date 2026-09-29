@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from html import escape
 from datetime import datetime
 
 from flask import (
@@ -571,12 +572,12 @@ def path_length():
         if not root_ids_src:
             return render_error(
                 title="No matching source cells",
-                message=f"Could not find any cells matching '{source_cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(source_cell_names_or_ids)}'",
             )
         if not root_ids_target:
             return render_error(
                 title="No matching target cells",
-                message=f"Could not find any cells matching '{target_cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(target_cell_names_or_ids)}'",
             )
 
         if len(root_ids_src) > MAX_NODES_FOR_PATHWAY_ANALYSIS:
@@ -627,7 +628,7 @@ def path_length():
                 for j, val in enumerate(r):
                     if j == 0:
                         r[j] = (
-                            f'<a href="{url_for("app.search", filter_string="id == " + str(from_root_id))}">{neuron_db.get_neuron_data(from_root_id)["name"]}</a><br><small>{from_root_id}</small>'
+                            f'<a href="{url_for("app.search", filter_string="id == " + str(from_root_id))}">{escape(neuron_db.get_neuron_data(from_root_id)["name"])}</a><br><small>{from_root_id}</small>'
                         )
                     elif val > 0:
                         to_root_id = int(matrix[0][j])
@@ -647,7 +648,7 @@ def path_length():
                 if j > 0:
                     matrix[0][
                         j
-                    ] = f'<a href="{url_for("app.search", filter_string="id == " + str(val))}">{neuron_db.get_neuron_data(int(val))["name"]}</a><br><small>{val}</small>'
+                    ] = f'<a href="{url_for("app.search", filter_string="id == " + str(val))}">{escape(neuron_db.get_neuron_data(int(val))["name"])}</a><br><small>{val}</small>'
 
     info_text = (
         "With this tool you can specify one or more source cells + one or more target cells, set a "
@@ -767,7 +768,7 @@ def connectivity():
         if not root_ids:
             return render_error(
                 title="No matching cells found",
-                message=f"Could not find any cells matching '{cell_names_or_ids}'",
+                message=f"Could not find any cells matching '{escape(cell_names_or_ids)}'",
             )
         elif len(root_ids) == 1:
             # if only one match found, show some connections to it's partners (instead of lonely point)

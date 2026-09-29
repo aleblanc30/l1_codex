@@ -10,6 +10,7 @@ from codex.data.structured_search_filters import (
     make_structured_terms_predicate,
     apply_chaining_rule,
     parse_search_query,
+    structured_terms_reference_attributes,
 )
 from codex.configuration import MIN_NBLAST_SCORE_SIMILARITY
 from codex.utils.formatting import (
@@ -67,6 +68,11 @@ class NeuronDB(object):
         self.grouped_connection_counts = grouped_connection_counts
         self.grouped_reciprocal_connection_counts = grouped_reciprocal_connection_counts
         self.meta_data = {"labels_file_timestamp": labels_file_timestamp}
+        # Aggregates of orphaned synaptic sites stand for no cell. They keep their connection rows, but they
+        # are left out of partner sets (pathways, motifs, similarity) and of search results unless asked for.
+        self.aggregate_ids = frozenset(
+            rid for rid, nd in self.neuron_data.items() if nd.get("is_aggregate")
+        )
 
         logger.debug("App initialization building search index..")
 
@@ -110,17 +116,20 @@ class NeuronDB(object):
     @lru_cache
     def input_output_partners_with_synapse_counts(self, min_syn_count=0):
         ins, outs = self.connections_.input_output_partners_with_synapse_counts()
-        if min_syn_count:
+        aggregate_ids = self.aggregate_ids
+        if min_syn_count or aggregate_ids:
 
-            def apply_syn_threshold(syn_counts):
+            def real_partners(rid, syn_counts):
+                if rid in aggregate_ids:
+                    return {}
                 return {
                     rid_: cnt
                     for rid_, cnt in syn_counts.items()
-                    if cnt >= min_syn_count
+                    if rid_ not in aggregate_ids and cnt >= min_syn_count
                 }
 
-            ins = {k: apply_syn_threshold(v) for k, v in ins.items()}
-            outs = {k: apply_syn_threshold(v) for k, v in outs.items()}
+            ins = {k: real_partners(k, v) for k, v in ins.items()}
+            outs = {k: real_partners(k, v) for k, v in outs.items()}
 
         for rid in self.neuron_data.keys():
             if rid not in ins:
@@ -499,8 +508,25 @@ class NeuronDB(object):
     def labels_ingestion_timestamp(self):
         return self.meta_data["labels_file_timestamp"]
 
+    def _asks_for_aggregates(self, search_query):
+        # Aggregates are listed when the query names them by id or by the is_aggregate attribute
+        if not self.aggregate_ids or not search_query:
+            return False
+        if search_query.strip().isdigit():
+            return int(search_query) in self.aggregate_ids
+        _, _, structured_terms = parse_search_query(search_query)
+        return structured_terms_reference_attributes(
+            structured_terms, {"is_aggregate", "root_id"}
+        )
+
     @lru_cache
     def search(self, search_query, case_sensitive=False, word_match=False):
+        results = self._search(search_query, case_sensitive, word_match)
+        if self.aggregate_ids and not self._asks_for_aggregates(search_query):
+            results = [r for r in results if r not in self.aggregate_ids]
+        return results
+
+    def _search(self, search_query, case_sensitive, word_match):
         # A number that is the id of a cell finds that cell only. Ids are short and would otherwise
         # match numbers inside names.
         if search_query and search_query.strip().isdigit():

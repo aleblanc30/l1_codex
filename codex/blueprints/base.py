@@ -1,5 +1,6 @@
 import os
 from random import randint
+from urllib.parse import urlencode
 
 from flask import (
     Blueprint,
@@ -23,6 +24,7 @@ from codex.utils.formatting import (
     display,
     nanos_to_formatted_micros,
     percentage,
+    sanitize_message_html,
     truncate,
 )
 from codex import logger
@@ -106,8 +108,9 @@ def js(filename):
 
 @base.route("/error", methods=["GET", "POST"])
 def error():
-    message = request.args.get("message", "Unexpected error")
-    title = request.args.get("title", "Request failed")
+    # the message comes from the URL, so it is limited to simple markup
+    message = sanitize_message_html(request.args.get("message", "Unexpected error"))
+    title = sanitize_message_html(request.args.get("title", "Request failed"))
     logger.info(f"Loading Error page with {title=} and {message=}")
     back_button = request.args.get("back_button", 1, type=int)
     message_sent = False
@@ -229,11 +232,17 @@ def index(path):
         )
 
 
+def error_page_url(message, title, back_button):
+    return "/error?" + urlencode(
+        {"message": message, "title": title, "back_button": back_button}
+    )
+
+
 def render_error(
     message="No details available.", title="Something went wrong", back_button=1
 ):
     logger.error(f"Redirecting to error page: {message=} {title=}")
-    return redirect(f"/error?message={message}&title={title}&back_button={back_button}")
+    return redirect(error_page_url(message, title, back_button))
 
 
 def render_info(title="Info", message="Operation complete.", back_button=1):

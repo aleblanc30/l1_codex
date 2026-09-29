@@ -94,7 +94,7 @@
 
 {% if hint %}
 <button class="btn btn-btn-link" style="color: blue;" type="button"
-        onclick="searchbox = document.getElementById('filter_string'); searchbox.value = '{{hint}}'; searchbox.form.submit();">
+        onclick='searchbox = document.getElementById("filter_string"); searchbox.value = {{ hint|tojson }}; searchbox.form.submit();'>
     Show results for '<b>{{hint}}</b>' instead?
 </button>
 {% endif %}

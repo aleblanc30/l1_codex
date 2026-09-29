@@ -174,7 +174,9 @@ def cached_cell_details(
         )
         if "reciprocal" in nd["connectivity_tag"]:
             up, dn = neuron_db.connections_up_down(root_id)
-            reciprocal_count = len(set(up).intersection(dn))
+            reciprocal_count = len(
+                set(up).intersection(dn) - neuron_db.aggregate_ids
+            )
             insert_related_cell_links(
                 f"reciprocal cells (both up- and downstream) with {MIN_SYN_THRESHOLD}+ synapses",
                 reciprocal_count,
