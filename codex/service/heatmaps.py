@@ -8,6 +8,8 @@ from codex.data.view_cache import cleared_when_a_view_is_evicted
 ALL = "All"
 UNKNOWN = "Unknown"
 COUNT_TYPE_OPTIONS = ["Synapses", "Connections", "Reciprocal Connections"]
+# A table with hundreds of groups is unreadable and very large, so only the largest groups are shown
+MAX_GROUPS_SHOWN = 40
 
 
 @lru_cache
@@ -31,8 +33,11 @@ def heatmap_color(value, min_value, mid_value, max_value):
     return f"{color}{opacity}"
 
 
-def make_table(counts_table, group_sizes, normalization_table=None):
+def make_table(counts_table, group_sizes, normalization_table=None, max_groups=None):
     groups = sorted(group_sizes.keys(), key=lambda x: -group_sizes[x])
+    if max_groups is not None and len(groups) > max_groups + 1:
+        # All is the largest, so it is always among the first
+        groups = groups[: max_groups + 1]
 
     def header_caption(cln):
         return f"<b>{cln}</b>&nbsp;<small>{round(100 * group_sizes[cln] / group_sizes[ALL])}%</small>"
@@ -121,7 +126,7 @@ def compute_group_sizes(neuron_db, group_attr):
     return group_sizes
 
 
-def heatmap_data(neuron_db, group_by, count_type):
+def heatmap_data(neuron_db, group_by, count_type, max_groups=MAX_GROUPS_SHOWN):
     group_by_attributes = {
         display(attr): attr for attr in neuron_db.grouped_synapse_counts.keys()
     }
@@ -142,8 +147,10 @@ def heatmap_data(neuron_db, group_by, count_type):
         counts_table=attr_group_data,
         group_sizes=group_sizes,
         normalization_table=normalization_table,
+        max_groups=max_groups,
     )
 
+    num_groups = len(group_sizes) - 1  # without All
     explanations = [
         f"This table shows the distribution of <b>{count_type.lower()}</b> across neurons grouped "
         f"by <b>{display(group_by).lower()}</b>.",
@@ -153,6 +160,11 @@ def heatmap_data(neuron_db, group_by, count_type):
         "Cell colors are assigned to highlight the "
         "group pairs for which average value deviates from the overall average.",
     ]
+    if num_groups > max_groups:
+        explanations.append(
+            f"Showing the {max_groups} largest of {num_groups} groups. "
+            "The totals in the All row and column include every group."
+        )
 
     return dict(
         table=table,

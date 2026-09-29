@@ -75,8 +75,6 @@ jinja_env.globals["dropdown_items"] = dropdown_items
 jinja_env.globals["more_tabs"] = more_tabs
 jinja_env.globals["request"] = request
 
-# This flag disables the UI for features that won't work in the open source version of Codex
-jinja_env.globals["is_oss"] = True
 
 
 def render_template(template_name_or_list, **context):
@@ -308,10 +306,10 @@ def index(path):
             num_synapses=display(neuron_db.num_synapses()),
             num_connections=display(neuron_db.num_connections()),
             num_typed_or_identified_cells=display(
-                neuron_db.num_typed_or_identified_cells()
+                neuron_db.num_typed_cells()
             ),
             percent_typed_or_identified_cells=percentage(
-                neuron_db.num_typed_or_identified_cells(), neuron_db.num_cells()
+                neuron_db.num_typed_cells(), neuron_db.num_cells()
             ),
             default_version=DEFAULT_DATA_SNAPSHOT_VERSION,
             min_syn_threshold=MIN_SYN_THRESHOLD,

@@ -54,7 +54,6 @@ NEURON_SEARCH_LABEL_ATTRIBUTES = [
 # Attributes whose values are searchable by word prefix and by substring, and not only as whole labels.
 # Raw source annotations are left out on purpose (too many, too noisy). They can be searched by attribute.
 NEURON_SEARCH_TEXT_ATTRIBUTES = [
-    "label",
     "skeleton_name",
     "cell_type",
     "papers",
@@ -66,19 +65,15 @@ class NeuronDB(object):
         self,
         neuron_attributes,
         neuron_connection_rows,
-        label_data,
-        labels_file_timestamp,
         grouped_synapse_counts,
         grouped_connection_counts,
         grouped_reciprocal_connection_counts,
     ):
         self.neuron_data = neuron_attributes
         self.connections_ = Connections(neuron_connection_rows)
-        self.label_data = label_data
         self.grouped_synapse_counts = grouped_synapse_counts
         self.grouped_connection_counts = grouped_connection_counts
         self.grouped_reciprocal_connection_counts = grouped_reciprocal_connection_counts
-        self.meta_data = {"labels_file_timestamp": labels_file_timestamp}
         # Aggregates of orphaned synaptic sites stand for no cell. They keep their connection rows, but they
         # are left out of partner sets (pathways, motifs, similarity) and of search results unless asked for.
         self.aggregate_ids = frozenset(
@@ -157,8 +152,6 @@ class NeuronDB(object):
         view = NeuronDB(
             neuron_attributes=neuron_attributes,
             neuron_connection_rows=rows,
-            label_data=self.label_data,
-            labels_file_timestamp=self.meta_data["labels_file_timestamp"],
             grouped_synapse_counts=grouped_synapses,
             grouped_connection_counts=grouped_connections,
             grouped_reciprocal_connection_counts=grouped_reciprocal,
@@ -284,16 +277,12 @@ class NeuronDB(object):
         return self.connections_.num_connections()
 
     @instance_cache
-    def num_labels(self):
-        return sum([len(nd["label"]) for nd in self.neuron_data.values()])
-
-    @instance_cache
-    def num_typed_or_identified_cells(self):
+    def num_typed_cells(self):
         return len(
             [
                 nd
                 for nd in self.neuron_data.values()
-                if any([nd[attr] for attr in ["label", "cell_type"]])
+                if nd["cell_type"]
             ]
         )
 
@@ -322,7 +311,6 @@ class NeuronDB(object):
             "Hemilineage": "hemilineage",
             "Nerve": "nerve",
             "Cell Body Side": "side",
-            "Community Identification Label": "label",
             "Connectivity Tag": "connectivity_tag",
             "Max In/Out Neuropil": "group",
         }
@@ -528,53 +516,6 @@ class NeuronDB(object):
     def get_all_cell_types(self, root_id):
         nd = self.get_neuron_data(root_id)
         return nd["cell_type"]
-
-    def get_label_data(self, root_id):
-        root_id = int(root_id)
-        return self.label_data.get(root_id)
-
-    def label_data_for_ids(self, ids, user_filter=None, lab_filter=None):
-        if user_filter:
-            user_filter = user_filter.lower()
-        if lab_filter:
-            lab_filter = lab_filter.lower()
-
-        def filtered(label_list):
-            if user_filter:
-                label_list = [
-                    ld
-                    for ld in label_list
-                    if ld["user_name"] and user_filter in ld["user_name"].lower()
-                ]
-            if lab_filter:
-                label_list = [
-                    ld
-                    for ld in label_list
-                    if ld["user_affiliation"]
-                    and lab_filter in ld["user_affiliation"].lower()
-                ]
-            return label_list
-
-        res = {}
-        for r in ids:
-            flist = filtered(self.label_data[r])
-            if flist:
-                res[r] = flist
-        return res
-
-    def get_links(self, root_id):
-        nd = self.get_neuron_data(root_id)
-        links = []
-        for mrk in nd["marker"]:
-            if mrk.startswith("link:"):
-                links.append(mrk[len("link:") :])
-        return links
-
-    def cell_ids_with_label_data(self):
-        return list(self.label_data.keys())
-
-    def labels_ingestion_timestamp(self):
-        return self.meta_data["labels_file_timestamp"]
 
     def _asks_for_aggregates(self, search_query):
         # Aggregates are listed when the query names them by id or by the is_aggregate attribute

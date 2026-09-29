@@ -32,10 +32,6 @@ NEURON_DATA_ATTRIBUTE_TYPES = {
     "skeleton_name": str,
     # optional mirror/twin cell (LR matching)
     "mirror_twin_root_id": int,
-    # community identification labels (none in the L1 data)
-    "label": list,
-    # generic badges for marking special cells (e.g. labeling candidates)
-    "marker": list,
     # shape-based similarity, cell id -> 1-digit score (none in the L1 data)
     "similar_cell_scores": dict,
     # neurotransmitter type info with prediction confidence scores
@@ -234,8 +230,6 @@ def initialize_neuron_data(
     return NeuronDB(
         neuron_attributes=neuron_attributes,
         neuron_connection_rows=neuron_connection_rows,
-        label_data=defaultdict(list),
-        labels_file_timestamp="?",
         grouped_synapse_counts=grouped_synapse_counts,
         grouped_connection_counts=grouped_connection_counts,
         grouped_reciprocal_connection_counts=grouped_reciprocal_connection_counts,

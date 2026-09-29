@@ -159,7 +159,6 @@ def render_neuron_list(
 
     display_data = [neuron_db.get_neuron_data(i) for i in page_ids]
     highlighted_terms = {}
-    links = {}
     for nd in display_data:
         # Only highlight from free-form search tokens (and not structured search attributes)
         psq = parse_search_query(filter_string)
@@ -185,13 +184,11 @@ def render_neuron_list(
                 else:
                     terms_to_annotate.add(nd[attr_name])
         highlighted_terms.update(highlight_annotations(search_terms, terms_to_annotate))
-        links[nd["root_id"]] = neuron_db.get_links(nd["root_id"])
 
     return render_template(
         template_name_or_list=template_name,
         display_data=display_data,
         highlighted_terms=highlighted_terms,
-        links=links,
         # If num results is small enough to pass to browser, pass it to allow copying root IDs to clipboard.
         # Otherwise it will be available as downloadable file.
         root_ids_str=(
@@ -236,7 +233,6 @@ def _search_and_sort():
         query=filter_string,
         ids=filtered_root_id_list,
         output_sets=neuron_db.output_sets(),
-        label_count_getter=lambda x: len(neuron_db.get_neuron_data(x)["label"]),
         nt_type_getter=lambda x: neuron_db.get_neuron_data(x)["nt_type"],
         synapse_neuropil_count_getter=lambda x: len(
             neuron_db.get_neuron_data(x)["input_neuropils"]

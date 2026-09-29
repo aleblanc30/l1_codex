@@ -114,9 +114,8 @@ class InitializeNeuronDataTest(TestCase):
         self.assertEqual(1, counts[("", "left")])
 
     def test_there_are_no_community_labels(self):
-        self.assertEqual({}, dict(self.db.label_data))
         for nd in self.nd.values():
-            self.assertEqual([], nd["label"])
+            self.assertNotIn("label", nd)
 
 
 class InitializeNeuronDataValidationTest(TestCase):

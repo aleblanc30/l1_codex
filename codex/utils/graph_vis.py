@@ -6,7 +6,7 @@ from flask import url_for
 from codex.blueprints.base import render_template
 
 from codex.data.brain_regions import neuropil_description, lookup_neuropil_set
-from codex.utils.formatting import shorten_and_concat_labels, display
+from codex.utils.formatting import display
 
 INPUT_NEUROPIL_COLOR = "#97c2fc"
 OUTPUT_NEUROPIL_COLOR = "#fcc297"
@@ -57,7 +57,6 @@ def make_graph_html(
     connections_cap,
     name_getter,
     caption_getter,
-    label_getter,
     class_getter,
     nt_type_getter,
     size_getter,
@@ -159,13 +158,9 @@ def make_graph_html(
 
     def node_title(nid):
         name = name_getter(nid)
-        if not label_getter or not class_getter:
+        if not class_getter:
             return name
         class_and_annotations = class_getter(nid)
-        labels = label_getter(nid)
-        if labels:
-            labels_str = shorten_and_concat_labels(labels)
-            class_and_annotations += f"<br>{labels_str}"
 
         prefix = "queried cell" if nid in center_ids else "connected cell"
         cell_detail_url = url_for("app.cell_details", root_id=nid)

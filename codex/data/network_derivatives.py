@@ -2,6 +2,7 @@ from collections import defaultdict
 
 HEATMAP_GROUP_BY_ATTRIBUTES = [
     "side",
+    "group",
     "flow",
     "nt_type",
     "super_class",
@@ -10,6 +11,7 @@ HEATMAP_GROUP_BY_ATTRIBUTES = [
 ]
 NETWORK_GROUP_BY_ATTRIBUTES = [
     "side",
+    "group",
     "flow",
     "nt_type",
     "super_class",

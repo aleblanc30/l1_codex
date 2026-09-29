@@ -293,10 +293,6 @@ STRUCTURED_SEARCH_ATTRIBUTES = [
         value_convertor=_to_number,
         numeric=True,
     ),
-    SearchAttribute(
-        description="Generic cell markers",
-        name="marker",
-    ),
 ]
 
 SEARCH_ATTRIBUTE_NAMES = [a.name for a in STRUCTURED_SEARCH_ATTRIBUTES]
