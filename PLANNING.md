@@ -73,7 +73,9 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Global neuron-set filter with the Winding 2023 default and per-request aggregates
 - [ ] Skip aggregates in pathway search, motif search and reciprocal counts
 - [ ] Show the orphan share as a completeness indicator, with a note that degree counts understate connectivity
-- [ ] Index skeleton names and annotations for partial-word search (only community labels are tokenized today, so `v'ada` does not match `v'ada_a3l`, and names are found only whole)
+- [x] Free-text search matches words, word prefixes and substrings of skeleton names, cell types and paper names (`v'ada`, `MBON` and `Eichler` now find their cells), and a number that is a cell id finds that cell only
+- [ ] Make the raw annotations searchable through a structured attribute (they are deliberately left out of free-text search: 358,000 rows, many of them working notes)
+- [ ] Keep the aggregate nodes out of search results by default (a search for `A3_L` currently lists them first)
 - [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes)
 - [ ] Add the `group` attribute to the heatmap and network group-by lists, since flow, class and sub-class are empty
 - [x] Hide the FlyWire community features: the leaderboard and labeling-log routes are no longer served, and the community labels column and modal, the `label` search attribute, the label sort options, the label statistics, the CSV label column and the labeling wording are gone (`tests/unit/test_community_features_hidden.py`)
