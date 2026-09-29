@@ -178,7 +178,7 @@ def index(path):
             },
             {
                 "header": "Explore",
-                "body": "Browse cell types, labels, and groupings of the neurons in the dataset",
+                "body": "Browse cell types and groupings of the neurons in the dataset",
                 "asset_filename": "card-explore.jpg",
                 "url": "app.explore",
             },

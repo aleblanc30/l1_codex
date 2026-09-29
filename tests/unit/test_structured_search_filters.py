@@ -242,9 +242,9 @@ class Test(TestCase):
         self.assertEqual(0, score)
         self.assertEqual("root_id", attr.name)
 
-        score, attr = closest_attribute_by_name("tags")
+        score, attr = closest_attribute_by_name("nervee")
         self.assertEqual(1, score)
-        self.assertEqual("label", attr.name)
+        self.assertEqual("nerve", attr.name)
 
         score, attr = closest_attribute_by_name("flowing")
         self.assertEqual(3, score)

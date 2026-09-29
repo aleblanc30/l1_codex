@@ -146,17 +146,11 @@ def _make_data_charts(data_list):
 
 
 def _make_data_stats(neuron_data):
-    labeled_neurons = 0
     classified_neurons = 0
-    anno_counts = defaultdict(int)
     total_length = 0
     total_area = 0
     total_volume = 0
     for nd in neuron_data:
-        if nd["label"]:
-            labeled_neurons += 1
-            for t in nd["label"]:
-                anno_counts[t] += 1
         if nd["class"]:
             classified_neurons += 1
         total_length += nd["length_nm"]
@@ -166,7 +160,6 @@ def _make_data_stats(neuron_data):
     result = {
         "": {
             "Cells": len(neuron_data),
-            "- With label(s)": labeled_neurons,
             "- Classified": classified_neurons,
             "- Combined length": (
                 nanos_to_formatted_micros(total_length, 1) if neuron_data else "NA"
@@ -179,12 +172,6 @@ def _make_data_stats(neuron_data):
             ),
         }
     }
-    if anno_counts:
-        result["Top Labels"] = {
-            k: anno_counts[k]
-            for k in sorted(anno_counts, key=anno_counts.get, reverse=True)[:10]
-        }
-
     return result
 
 
@@ -215,70 +202,6 @@ def compile_data(neuron_data, search_query, case_sensitive, match_words, data_ve
     data_charts = _make_data_charts(neuron_data)
 
     return caption, data_stats, data_charts
-
-
-def collect_leaderboard_data(label_data, top_n, include_lab_leaderboard):
-    all_labels = []
-    for ld in label_data:
-        if ld:
-            all_labels.extend(ld)
-    recent_labels = sorted(all_labels, key=lambda t: t["label_id"])[-500:]
-    ldrb_data = {}
-    if include_lab_leaderboard:
-        contributors_by_lab = defaultdict(set)
-        for t in all_labels:
-            contributors_by_lab[t["user_affiliation"]].add(t["user_name"])
-        lab_lb = defaultdict(int)
-        for ld_item in all_labels:
-            lab_name = ld_item["user_affiliation"]
-            if lab_name:
-                lab_lb[lab_name] += 1
-
-        lab_ldbd = {
-            (
-                k
-                if len(contributors_by_lab[k]) <= 1
-                else f"{k}<br><small>{len(contributors_by_lab[k])} contributors</small>"
-            ): lab_lb[k]
-            for k in sorted(
-                lab_lb,
-                key=lab_lb.get,
-                reverse=True,
-            )[:top_n]
-        }
-        if lab_ldbd:
-            ldrb_data["Labs by label contributions"] = lab_ldbd
-
-    def user_cred_counts(labels_list):
-        res = defaultdict(int)
-        for ld_item in labels_list:
-            if ld_item["user_name"] and "members" not in ld_item["user_name"].lower():
-                caption = ld_item["user_name"]
-                if ld_item["user_affiliation"]:
-                    caption += "<br><small>" + ld_item["user_affiliation"] + "</small>"
-                res[caption] += 1
-        return res
-
-    user_credit_counts_all = user_cred_counts(all_labels)
-    if user_credit_counts_all:
-        ldrb_data["Top Labelers (all time)"] = {
-            k: user_credit_counts_all[k]
-            for k in sorted(
-                user_credit_counts_all, key=user_credit_counts_all.get, reverse=True
-            )[:top_n]
-        }
-
-    user_credit_counts_recent = user_cred_counts(recent_labels)
-    if user_credit_counts_recent:
-        ldrb_data[f"Top Labelers (last {len(recent_labels)})"] = {
-            k: user_credit_counts_recent[k]
-            for k in sorted(
-                user_credit_counts_recent,
-                key=user_credit_counts_recent.get,
-                reverse=True,
-            )[:top_n]
-        }
-    return ldrb_data
 
 
 def jaccard_weighted(d1, d2):

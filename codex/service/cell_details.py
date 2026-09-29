@@ -126,11 +126,6 @@ def cached_cell_details(
             nd["connectivity_tag"],
             linker=lambda con_tag: connectivity_tag_links(root_id, con_tag),
         ),
-        "Community Labels<br><small>"
-        f'<a href="{url_for("app.labeling_log", root_id=root_id)}" target="_blank">'
-        'info & credits <i class="fa-solid fa-up-right-from-square"></i></a></small>': concat_labels(
-            nd["label"]
-        ),
     }
 
     related_cells = []

@@ -51,12 +51,6 @@ STRUCTURED_SEARCH_ATTRIBUTES = [
         alternative_names=["id", "cell_id"],
     ),
     SearchAttribute(
-        description="Human readable label assigned during cell identification process "
-        "(each cell can have zero or more labels)",
-        name="label",
-        alternative_names=["tag", "labels", "identification", "annotation"],
-    ),
-    SearchAttribute(
         description="Neuron side / hemisphere",
         name="side",
         alternative_names=["hemisphere"],
@@ -347,7 +341,7 @@ STRUCTURED_SEARCH_OPERATORS = [
     BinarySearchOperator(
         name=OP_STARTS_WITH,
         shorthand="^*",
-        description="Binary, LHS attribute of the cell starts with RHS value (e.g., label {starts_with} LC)",
+        description="Binary, LHS attribute of the cell starts with RHS value (e.g., cell_type {starts_with} MBON)",
         lhs_description="Attribute",
         lhs_range=SEARCH_ATTRIBUTE_NAMES,
         rhs_description="Prefix",
@@ -356,7 +350,7 @@ STRUCTURED_SEARCH_OPERATORS = [
     BinarySearchOperator(
         name=OP_CONTAINS,
         shorthand=">>",
-        description="Binary, LHS attribute of the cell contains RHS value (e.g., label {contains} dsx)",
+        description="Binary, LHS attribute of the cell contains RHS value (e.g., cell_type {contains} KC)",
         lhs_description="Attribute",
         lhs_range=SEARCH_ATTRIBUTE_NAMES,
         rhs_description="Substring",
@@ -365,7 +359,7 @@ STRUCTURED_SEARCH_OPERATORS = [
     BinarySearchOperator(
         name=OP_NOT_CONTAINS,
         shorthand="!>",
-        description="Binary, LHS attribute of the cell does not contain RHS value (e.g., label {not_contains} dsx)",
+        description="Binary, LHS attribute of the cell does not contain RHS value (e.g., cell_type {not_contains} KC)",
         lhs_description="Attribute",
         lhs_range=SEARCH_ATTRIBUTE_NAMES,
         rhs_description="Substring",

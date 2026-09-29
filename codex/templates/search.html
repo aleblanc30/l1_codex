@@ -72,9 +72,6 @@
                 Classification
                 <a href="" style="color:teal;" data-toggle="modal" data-target="#cellAnnotationsModal">[?]</a>
             </th>
-            <th scope="col" title="Annotations provided by members of the FlyWire community">Community Labels
-                <a href="" style="color:teal;" data-toggle="modal" data-target="#communityLabelsModal">[?]</a>
-            </th>
         </tr>
         </thead>
         <tbody>
@@ -214,42 +211,6 @@
                 %} {% include "attribute_with_spot_filter.html" %} {% endwith %}
 
             </td>
-            <td style="color:#3A3A3A;">
-                {% for tg in neuron.label %}
-                <div class="spotfilter">
-                    <small><b>&#x2022;</b> &nbsp;{{highlighted_terms.get(tg, tg)|safe}}</small>
-                    {% if tg in non_uniform_labels %}
-                    <span class="td_filter_buttons">
-                        <nobr>
-                        <button title="Exclude items with this label" class="btn btn-sm btn-link my-2 my-sm-0" onclick="apply_filter('label != {{tg}}');" style="padding: 0px; font-size: 10px; color: red;"><i class="fa-solid fa-circle-minus"></i></button>
-                        <button title="Show only items with this label" class="btn btn-sm btn-link my-2 my-sm-0" onclick="apply_filter('label == {{tg}}');" style="padding: 0px; font-size: 10px; color: green;"><i class="fa-solid fa-circle-plus"></i></button>
-                        </nobr>
-                    </span>
-                    <span class="td_filter_buttons_caption">
-                        <!--apply filter-->
-                    </span>
-                    {% else %}
-                    <span class="td_filter_buttons_caption" style="color: orange">
-                        all matches
-                    </span>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                {% if links.get(neuron.root_id) %}
-                <small style="color: magenta" id="links_{{neuron.root_id}}_header" onclick="elem = document.getElementById('links_{{neuron.root_id}}_body'); elem.hidden = !elem.hidden; elem = document.getElementById('links_{{neuron.root_id}}_header'); elem.hidden = !elem.hidden;"><i class="fa-solid fa-book-open-reader"></i> literature links <i class="fa-solid fa-caret-down"></i></small>
-                <div id="links_{{neuron.root_id}}_body" hidden>
-                    <small style="color: magenta" onclick="elem = document.getElementById('links_{{neuron.root_id}}_body'); elem.hidden = !elem.hidden; elem = document.getElementById('links_{{neuron.root_id}}_header'); elem.hidden = !elem.hidden;"><i class="fa-solid fa-book-open-reader"></i> literature links <i class="fa-solid fa-caret-up"></i></small>
-                    <div style="font-size: 11px;">
-                    {% for link in links.get(neuron.root_id) %}
-                        &nbsp; &#8226; <a  target="_blank" href="{{link}}">
-                            {{link}}
-                        </a><br>
-                    {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-
-            </td>
         </tr>
         {% endfor %}
         </tbody>
@@ -270,7 +231,6 @@
 </ul>
 
 {% include "cell_annotations_modal.html" %}
-{% include "community_labels_modal.html" %}
 
 {% endif %}
 

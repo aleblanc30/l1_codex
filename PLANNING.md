@@ -76,7 +76,9 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Index skeleton names and annotations for partial-word search (only community labels are tokenized today, so `v'ada` does not match `v'ada_a3l`, and names are found only whole)
 - [ ] Audit every place where names, cell types and annotations are put into HTML strings or inline JavaScript, and escape them (they contain quotes, `&`, `<` and `>`, and the loader no longer replaces quotes)
 - [ ] Add the `group` attribute to the heatmap and network group-by lists, since flow, class and sub-class are empty
-- [ ] Decide what to do with the FlyWire community features that have no L1 data (labels, leaderboard, annotate cell), and with the motif search, statistics and label-cleaning code that lists only known transmitters
+- [x] Hide the FlyWire community features: the leaderboard and labeling-log routes are no longer served, and the community labels column and modal, the `label` search attribute, the label sort options, the label statistics, the CSV label column and the labeling wording are gone (`tests/unit/test_community_features_hidden.py`)
+- [ ] Remove the code the hidden features left behind: the label methods of `NeuronDB`, the `label` and `marker` attributes, the `is_oss`-guarded annotation form and the label-cleaning module
+- [ ] Decide what to do with the motif search and statistics code that lists only the six known transmitters
 
 ### Phase 4: neuroglancer viewer
 
@@ -112,5 +114,6 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - Full export: the same command without `--limit`. It took roughly 15 to 20 minutes and resumes from the cache directory if interrupted.
 - Unit tests for the L1 work: `python3 -m pytest tests/unit/test_l1_export.py tests/unit/test_local_data_loader.py tests/unit/test_neuron_data_initializer.py tests/unit/test_brain_regions.py tests/unit/test_catalog.py`. The full suite is at 156 passing and 34 failing, all of the failures being FlyWire-specific assertions (Phase 5).
 - The first start builds `static/data/l1-2026-09/neuron_db.pickle.gz` from the bundled export in about 5 seconds. Delete the pickle after any schema change.
-- Packages needed to run the whole suite locally: Flask and user-agents (nglui is not needed by the unit tests).
+- Packages needed to run the whole suite locally: Flask and user-agents. `nglui` did not build in the cloud environment, so `tests/app_client.py` stubs it when the real package cannot be imported. The client also serves as a smoke test of the pages against the L1 data.
+- The pathways page takes `source_cell_id` and `target_cell_id`, and returns an error without them.
 - The exporter has been run end to end only against the public server, with the throttle at its defaults.

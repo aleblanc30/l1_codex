@@ -46,8 +46,6 @@ SORT_BY_OPTIONS = {
     "partners": "# Partners (low -> high)",
     "-synapse_neuropils": "# Synapse Regions (high -> low)",
     "synapse_neuropils": "# Synapse Regions (low -> high)",
-    "-labels": "# Labels (high -> low)",
-    "labels": "# Labels (low -> high)",
     "similar_shape_cells": "# Similar shape cells (high -> low)",
     "nt_type": "Neurotransmitter Type",
     "random": "Random",
@@ -107,12 +105,6 @@ def sort_search_results(
                 return ids, None
             if sort_by == "partners":
                 ids = sorted(ids, key=lambda x: partner_count_getter(x))
-                return ids, None
-            if sort_by == "-labels":
-                ids = sorted(ids, key=lambda x: -label_count_getter(x))
-                return ids, None
-            if sort_by == "labels":
-                ids = sorted(ids, key=lambda x: label_count_getter(x))
                 return ids, None
             if sort_by == "similar_shape_cells":
                 dct = {
