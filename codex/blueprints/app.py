@@ -33,7 +33,7 @@ from codex.data.faq_qa_kb import FAQ_QA_KB
 from codex.data.neuron_data_factory import NeuronDataFactory
 from codex.data.neuron_sets import active_neuron_set
 from codex.data.neuron_data_initializer import NETWORK_GROUP_BY_ATTRIBUTES
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_CHOICES
 from codex.data.sorting import SORT_BY_OPTIONS, sort_search_results
 from codex.data.structured_search_filters import (
     OP_PATHWAYS,
@@ -961,7 +961,7 @@ def motifs():
     return render_template(
         "motif_search.html",
         regions=list(REGIONS.keys()),
-        NEURO_TRANSMITTER_NAMES=NEURO_TRANSMITTER_NAMES,
+        NEURO_TRANSMITTER_CHOICES=NEURO_TRANSMITTER_CHOICES,
         query=query,
         results=search_results,
         show_explainer=show_explainer,

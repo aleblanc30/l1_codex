@@ -24,6 +24,7 @@ from codex.utils.formatting import (
     concat_labels,
     nanos_to_formatted_micros,
     display,
+    orphan_completeness,
 )
 from codex.utils.graph_algos import reachable_node_counts
 from codex.data.view_cache import cleared_when_a_view_is_evicted
@@ -74,6 +75,9 @@ def cached_cell_details(
         + f'" target="_blank">{display(nd["output_cells"])} out <i class="fa-solid fa-arrow-down"></i></a>'
         + f'<br><small><i class="fa-solid fa-arrow-up"></i> {display(nd["input_synapses"])} in &#183; '
         + f'{display(nd["output_synapses"])} out <i class="fa-solid fa-arrow-down"></i></small>',
+        "Orphaned synapses<br><small>not linked to a cell</small>": orphan_completeness(
+            nd
+        ),
         "NT Type": nd["nt_type"]
         + f' ({lookup_nt_type_name(nd["nt_type"])})'
         + (

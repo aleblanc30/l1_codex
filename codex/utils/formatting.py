@@ -43,6 +43,39 @@ def sanitize_message_html(message):
     return _OTHER_TAG_START.sub("&lt;", str(message))
 
 
+def _share_caption(orphaned, total):
+    if orphaned and total and 100 * orphaned < total:
+        return "<1%"
+    return f"{min(100, round(100 * orphaned / total))}%"
+
+
+def orphan_completeness(nd):
+    """Caption for how much of a cell's synapses connect to orphaned synaptic sites (sites that belong to no
+    reconstructed cell), or None if there is nothing to say. Partner counts leave these sites out."""
+    if nd["is_aggregate"]:
+        return None
+    parts, any_orphaned = [], False
+    for direction in ("input", "output"):
+        total = nd[f"total_{direction}_synapses"]
+        orphaned = nd[f"orphan_{direction}_synapses"]
+        if not total:
+            continue
+        any_orphaned = any_orphaned or orphaned > 0
+        parts.append(
+            f"{_share_caption(min(orphaned, total), total)} of {direction} synapses "
+            f"({display(orphaned)} of {display(total)})"
+        )
+    if not parts:
+        return None
+    caption = "Orphaned sites hold " + ", ".join(parts) + "."
+    if any_orphaned:
+        caption += (
+            "<br><small>Cells and synapses at orphaned sites are left out of partner counts, "
+            "which understate the connectivity of the cell.</small>"
+        )
+    return caption
+
+
 def clean_display_name(txt):
     """Trim surrounding whitespace and collapse inner whitespace runs, keeping every other
     character (quotes included) as is."""

@@ -3,7 +3,7 @@ from collections import namedtuple, defaultdict
 from codex.configuration import MIN_SYN_THRESHOLD
 from codex.data.brain_regions import REGIONS
 from codex.data.neuron_data_factory import NeuronDataFactory
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import NEURO_TRANSMITTER_CHOICES
 from codex.data.structured_search_filters import parse_search_query
 from codex.data.versions import DEFAULT_DATA_SNAPSHOT_VERSION
 from codex.data.neuron_data import NeuronDB
@@ -53,7 +53,7 @@ class MotifSearchQuery(object):
                 nt_type = form_query.get(f"ntType{edge_name}")
                 if nt_type == "Any":
                     nt_type = None
-                elif nt_type not in NEURO_TRANSMITTER_NAMES:
+                elif nt_type not in NEURO_TRANSMITTER_CHOICES:
                     raise ValueError(
                         f"NT type {nt_type} for {edge_name} not recognized."
                     )
@@ -104,7 +104,7 @@ class MotifSearchQuery(object):
         if min_synapse_count < 0:
             raise ValueError(f"Invalid min_synapse_count {min_synapse_count}")
 
-        if nt_type and nt_type not in NEURO_TRANSMITTER_NAMES:
+        if nt_type and nt_type not in NEURO_TRANSMITTER_CHOICES:
             raise ValueError(f"Unknown nt_type {nt_type}")
 
         self.edges[(from_node, to_node)] = EdgeConstraints(
@@ -280,7 +280,7 @@ class MotifSearchQuery(object):
         if region:
             assert region in REGIONS
         if nt_type:
-            assert nt_type in NEURO_TRANSMITTER_NAMES
+            assert nt_type in NEURO_TRANSMITTER_CHOICES
         assert isinstance(syn_count, int) and syn_count > 0
 
         return {
