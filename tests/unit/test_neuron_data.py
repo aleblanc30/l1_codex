@@ -307,11 +307,38 @@ class NeuronDataTest(TestCase):
 
         # a single number that is a cell id finds that cell only
         self.assertEqual([29], self.neuron_db.search("29"))
-        for query in ["29 11995", "29,11995", "29, 11995"]:
-            found = self.neuron_db.search(query)
-            self.assertIn(29, found, query)
-            self.assertIn(11995, found, query)
+
+        # so does a list of ids, separated by spaces or commas
+        for query in ["29 11995", "29,11995", "29, 11995", " 29 ,  11995 "]:
+            self.assertEqual([29, 11995], self.neuron_db.search(query), query)
+        self.assertEqual([11995, 29], self.neuron_db.search("11995 29"))
+        self.assertEqual([29, 11995], self.neuron_db.search("29 11995 29"))
         self.assertEqual([29, 11995], sorted(self.neuron_db.search("id << 29,11995")))
+
+        # ids that are not in the data are skipped, and none of them gives no results
+        self.assertEqual([29], self.neuron_db.search("29 999999999"))
+        self.assertEqual([], self.neuron_db.search("999999998 999999999"))
+
+        # a query that is not only ids is a text search
+        self.assertNotEqual([29, 11995], self.neuron_db.search("29 11995 kc"))
+
+    def test_search_by_ids_and_aggregates(self):
+        aggregate_id = min(self.neuron_db.aggregate_ids)
+        self.assertEqual([aggregate_id], self.neuron_db.search(str(aggregate_id)))
+        # aggregates are listed when a query names them by id, among other ids too
+        self.assertEqual(
+            [29, aggregate_id], self.neuron_db.search(f"29, {aggregate_id}")
+        )
+        # and not otherwise
+        self.assertFalse(
+            set(self.neuron_db.search("kc")) & self.neuron_db.aggregate_ids
+        )
+
+    def test_closest_token_ignores_id_lists(self):
+        for query in ["29 11995", "29,11995", "12345"]:
+            self.assertEqual(
+                (None, None), self.neuron_db.closest_token(query, case_sensitive=False)
+            )
 
     def test_structured_search_operator_combos(self):
         # {and} chains free form terms, as && does

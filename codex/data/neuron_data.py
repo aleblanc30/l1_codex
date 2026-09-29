@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from random import choice
 
@@ -58,6 +59,16 @@ NEURON_SEARCH_TEXT_ATTRIBUTES = [
     "cell_type",
     "papers",
 ]
+
+
+ID_LIST_PATTERN = re.compile(r"\d+(?:[\s,]+\d+)*")
+
+
+def ids_in_query(search_query):
+    """The cell ids of a query made only of numbers separated by spaces or commas, else None."""
+    if not search_query or not ID_LIST_PATTERN.fullmatch(search_query.strip()):
+        return None
+    return [int(i) for i in re.split(r"[\s,]+", search_query.strip())]
 
 
 class NeuronDB(object):
@@ -521,8 +532,9 @@ class NeuronDB(object):
         # Aggregates are listed when the query names them by id or by the is_aggregate attribute
         if not self.aggregate_ids or not search_query:
             return False
-        if search_query.strip().isdigit():
-            return int(search_query) in self.aggregate_ids
+        ids = ids_in_query(search_query)
+        if ids:
+            return any(i in self.aggregate_ids for i in ids)
         _, _, structured_terms = parse_search_query(search_query)
         return structured_terms_reference_attributes(
             structured_terms, {"is_aggregate", "root_id"}
@@ -536,12 +548,13 @@ class NeuronDB(object):
         return results
 
     def _search(self, search_query, case_sensitive, word_match):
-        # A number that is the id of a cell finds that cell only. Ids are short and would otherwise
-        # match numbers inside names.
-        if search_query and search_query.strip().isdigit():
-            root_id = int(search_query)
-            if root_id in self.neuron_data:
-                return [root_id]
+        # Numbers that are ids of cells find those cells only. Ids are short and would otherwise match
+        # numbers inside names and other ids. Several ids can be separated by spaces or commas.
+        ids = ids_in_query(search_query)
+        if ids:
+            known_ids = [i for i in dict.fromkeys(ids) if i in self.neuron_data]
+            if known_ids or len(ids) > 1:
+                return known_ids
 
         if not search_query:
             return sorted(
@@ -597,7 +610,7 @@ class NeuronDB(object):
 
     def closest_token(self, query, case_sensitive, limited_ids_set=None):
         query = query.strip()
-        if not query or query.isnumeric():  # do not suggest number/id close matches
+        if not query or ids_in_query(query):  # do not suggest number/id close matches
             return None, None
         chaining_rule, free_form_terms, structured_terms = parse_search_query(query)
         if chaining_rule or structured_terms:  # do not suggest for structured queries
