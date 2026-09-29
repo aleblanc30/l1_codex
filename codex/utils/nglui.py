@@ -1,196 +1,123 @@
+"""Links to the neuroglancer viewer for L1 cells and regions.
+
+Neuroglancer is a web application that runs in the browser. A link carries the description of the
+scene after "#!" and neuroglancer loads the data it names straight from the URLs in that
+description. The scene here is 3D only: skeletons of the selected cells inside the outline of the
+nervous system (there is no EM image layer, because neuroglancer cannot read CATMAID tile stacks).
+
+The skeleton and mesh files are served from this repository (data/l1_skeletons and data/l1_meshes,
+see scripts/export_l1_skeletons.py and scripts/export_l1_meshes.py). Set CODEX_DATA_REF to use another
+branch or tag, CODEX_DATA_HOST_URL for another host, and CODEX_NEUROGLANCER_URL for another
+neuroglancer deployment.
+"""
+
+import json
+import os
 import random
 import urllib.parse
-from nglui import statebuilder
-import json
 
-from codex.data.brain_regions import REGIONS, COLORS
-from codex.data.versions import (
-    DEFAULT_DATA_SNAPSHOT_VERSION,
-    DATA_SNAPSHOT_VERSION_DESCRIPTIONS,
-)
+from codex.data.brain_regions import COLORS, REGIONS
 
-from codex import logger
+NEUROGLANCER_URL = os.environ.get(
+    "CODEX_NEUROGLANCER_URL", "https://neuroglancer-demo.appspot.com"
+).rstrip("/")
+_DATA_HOST_URL = os.environ.get(
+    "CODEX_DATA_HOST_URL",
+    "https://raw.githubusercontent.com/aleblanc30/l1_codex/"
+    + os.environ.get("CODEX_DATA_REF", "main"),
+).rstrip("/")
+SKELETONS_URL = f"{_DATA_HOST_URL}/data/l1_skeletons"
+MESHES_URL = f"{_DATA_HOST_URL}/data/l1_meshes"
 
-NGL_FLAT_BASE_URL = "https://ngl.cave-explorer.org"
+# The CATMAID volume that outlines the whole CNS, and the centre of its bounding box in nanometres
+CNS_VOLUME_ID = 22
+CNS_CENTER_NM = (53018, 60486, 126547)
 
-
-def url_for_root_ids(
-    root_ids, version, point_to="ngl", position=None, show_side_panel=None
-):
-    if version not in DATA_SNAPSHOT_VERSION_DESCRIPTIONS:
-        logger.error(
-            f"Invalid version '{version}' passed to 'url_for_root_ids'. Falling back to default."
-        )
-        version = DEFAULT_DATA_SNAPSHOT_VERSION
-    if point_to in ["flywire_prod", "flywire_public"]:
-        img_layer = statebuilder.ImageLayerConfig(
-            name="EM",
-            source="precomputed://gs://microns-seunglab/drosophila_v0/alignment/vector_fixer30_faster_v01/v4/image_stitch_v02",
-        )
-
-        seg_layer_name = (
-            "Production segmentation"
-            if point_to == "flywire_prod"
-            else "Public segmentation"
-        )
-        seg_layer_source = (
-            "graphene://https://prodv1.flywire-daf.com/segmentation/table/fly_v31"
-            if point_to == "flywire_prod"
-            else "graphene://https://prodv1.flywire-daf.com/segmentation/1.0/flywire_public"
-        )
-
-        seg_layer = statebuilder.SegmentationLayerConfig(
-            name=seg_layer_name,
-            source=seg_layer_source,
-            fixed_ids=root_ids,
-        )
-
-        view_options = {
-            "layout": "xy-3d",
-            "show_slices": False,
-            "zoom_3d": 2500,
-            "zoom_image": 50,
-        }
-
-        if position is not None:
-            view_options["position"] = position
-
-        sb = statebuilder.StateBuilder(
-            layers=[img_layer, seg_layer],
-            resolution=[4, 4, 40],
-            view_kws=view_options,
-        )
-
-        config = sb.render_state(return_as="dict")
-        config["selectedLayer"] = {
-            "layer": seg_layer_name,
-            "visible": True,
-        }
-        config["jsonStateServer"] = "https://globalv1.flywire-daf.com/nglstate/post"
-
-        return f"https://ngl.flywire.ai/#!{urllib.parse.quote(json.dumps(config))}"
-    else:
-        return url_for_cells(
-            segment_ids=root_ids, data_version=version, show_side_panel=show_side_panel
-        )
+_CNS_COLOR = "#b5b5b5"
 
 
-def url_for_random_sample(root_ids, version, sample_size=50):
+def _url(state):
+    return f"{NEUROGLANCER_URL}/#!{urllib.parse.quote(json.dumps(state, separators=(',', ':')))}"
+
+
+def _cns_layer(alpha):
+    return {
+        "type": "segmentation",
+        "source": f"precomputed://{MESHES_URL}",
+        "name": "CNS",
+        "segments": [str(CNS_VOLUME_ID)],
+        "segmentColors": {str(CNS_VOLUME_ID): _CNS_COLOR},
+        "objectAlpha": alpha,
+    }
+
+
+def _state(layers, selected_layer, position):
+    return {
+        "dimensions": {axis: [1e-9, "m"] for axis in "xyz"},
+        "position": list(position or CNS_CENTER_NM),
+        "layers": layers,
+        "layout": "3d",
+        "projectionScale": 250000,
+        "showSlices": False,
+        "showAxisLines": False,
+        "showDefaultAnnotations": False,
+        "perspectiveViewBackgroundColor": "#ffffff",
+        "selectedLayer": selected_layer,
+    }
+
+
+def url_for_root_ids(root_ids, show_side_panel=None, position=None):
+    if show_side_panel is None:
+        show_side_panel = len(root_ids) > 1
+    neurons = {
+        "type": "segmentation",
+        "source": f"precomputed://{SKELETONS_URL}",
+        "name": "neurons",
+        "tab": "segments",
+        # BEWARE: JSON can't handle big ints
+        "segments": [str(rid) for rid in root_ids],
+        "skeletonRendering": {"mode2d": "lines_and_points", "mode3d": "lines", "lineWidth3d": 2},
+    }
+    state = _state(
+        [_cns_layer(alpha=0.05), neurons],
+        {"layer": "neurons", "visible": bool(show_side_panel)},
+        position,
+    )
+    return _url(state)
+
+
+def url_for_random_sample(root_ids, sample_size=50):
     # make the random subset selections deterministic across executions
-    random.seed(420)
+    rng = random.Random(420)
     if len(root_ids) > sample_size:
         # make a sorted sample to preserve original order
         root_ids = [
-            root_ids[i]
-            for i in sorted(random.sample(range(len(root_ids)), sample_size))
+            root_ids[i] for i in sorted(rng.sample(range(len(root_ids)), sample_size))
         ]
-    return url_for_root_ids(root_ids, version=version)
-
-
-def url_for_cells(segment_ids, data_version, show_side_panel=None):
-    if show_side_panel is None:
-        show_side_panel = len(segment_ids) > 1
-    else:
-        show_side_panel = bool(show_side_panel)
-
-    if data_version not in DATA_SNAPSHOT_VERSION_DESCRIPTIONS:
-        logger.error(
-            f"Invalid version '{data_version}' passed to 'url_for_cells'. Falling back to default."
-        )
-        data_version = DEFAULT_DATA_SNAPSHOT_VERSION
-
-    config = {
-        "dimensions": {"x": [1.6e-8, "m"], "y": [1.6e-8, "m"], "z": [4e-8, "m"]},
-        "projectionScale": 30000,
-        "layers": [
-            {
-                "type": "image",
-                "source": "precomputed://https://bossdb-open-data.s3.amazonaws.com/flywire/fafbv14",
-                "tab": "source",
-                "name": "EM",
-            },
-            {
-                "source": "precomputed://gs://flywire_neuropil_meshes/whole_neuropil/brain_mesh_v3",
-                "type": "segmentation",
-                "objectAlpha": 0.05,
-                "hideSegmentZero": False,
-                "segments": ["1"],
-                "segmentColors": {"1": "#b5b5b5"},
-                "skeletonRendering": {"mode2d": "lines_and_points", "mode3d": "lines"},
-                "name": "brain_mesh_v3",
-            },
-            {
-                "type": "segmentation",
-                "source": f"precomputed://gs://flywire_v141_m{data_version}",
-                "tab": "segments",
-                "segments": [
-                    str(sid) for sid in segment_ids
-                ],  # BEWARE: JSON can't handle big ints
-                "name": f"flywire_v141_m{data_version}",
-            },
-        ],
-        "showSlices": False,
-        "perspectiveViewBackgroundColor": "#ffffff",
-        "showDefaultAnnotations": False,
-        "selectedLayer": {
-            "visible": show_side_panel,
-            "layer": f"flywire_v141_m{data_version}",
-        },
-        "layout": "3d",
-    }
-
-    return f"{NGL_FLAT_BASE_URL}/#!{urllib.parse.quote(json.dumps(config))}"
+    return url_for_root_ids(root_ids)
 
 
 def url_for_neuropils(segment_ids=None):
-    if segment_ids:
-        # exclude "dummy" neuropils, e.g. unassigned, which by convention have negative ids
-        segment_ids = [s for s in segment_ids if s >= 0]
-    config = {
-        "layers": [
-            {
-                "source": "precomputed://gs://flywire_neuropil_meshes/whole_neuropil/brain_mesh_v3",
-                "type": "segmentation",
-                "objectAlpha": 0.1,
-                "hideSegmentZero": False,
-                "segments": ["1"],
-                "segmentColors": {"1": "#b5b5b5"},
-                "skeletonRendering": {"mode2d": "lines_and_points", "mode3d": "lines"},
-                "name": "brain_mesh_v3",
-            },
-            {
-                "type": "segmentation",
-                "mesh": "precomputed://gs://flywire_neuropil_meshes/neuropils/neuropil_mesh_v141_v3",
-                "objectAlpha": 1.0,  # workaround for broken transparency on iOS: https://github.com/google/neuroglancer/issues/471
-                "tab": "source",
-                "segments": segment_ids,
-                "segmentColors": {
-                    # exclude "dummy" neuropil colors, e.g. unassigned, which by convention have negative ids
-                    seg_id: COLORS[key]
-                    for key, (seg_id, _) in REGIONS.items()
-                    if seg_id >= 0
-                },
-                "skeletonRendering": {"mode2d": "lines_and_points", "mode3d": "lines"},
-                "name": "neuropil-regions-surface",
-            },
-        ],
-        "navigation": {
-            "pose": {
-                "position": {
-                    "voxelSize": [4, 4, 40],
-                    "voxelCoordinates": [132000, 55390, 512],
-                }
-            },
-            "zoomFactor": 40.875984234132744,
+    if not segment_ids:
+        segment_ids = [segment_id for segment_id, _ in REGIONS.values()]
+    # exclude "dummy" regions, e.g. unassigned, which by convention have negative ids
+    selected = {s for s in segment_ids if s >= 0}
+    regions = {
+        "type": "segmentation",
+        "source": f"precomputed://{MESHES_URL}",
+        "name": "regions",
+        "tab": "segments",
+        "segments": [str(s) for s in segment_ids if s in selected],
+        "segmentColors": {
+            str(segment_id): COLORS[key]
+            for key, (segment_id, _) in REGIONS.items()
+            if segment_id in selected
         },
-        "showAxisLines": False,
-        "perspectiveViewBackgroundColor": "#ffffff",
-        "perspectiveZoom": 4000,
-        "showSlices": False,
-        "gpuMemoryLimit": 2000000000,
-        "showDefaultAnnotations": False,
-        "selectedLayer": {"layer": "neuropil-regions-surface", "visible": False},
-        "layout": "3d",
+        "objectAlpha": 0.7,
     }
-
-    return f"{NGL_FLAT_BASE_URL}/#!{urllib.parse.quote(json.dumps(config))}"
+    state = _state(
+        [_cns_layer(alpha=0.03), regions],
+        {"layer": "regions", "visible": False},
+        None,
+    )
+    return _url(state)

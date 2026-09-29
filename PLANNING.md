@@ -51,7 +51,6 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Look at the 450 neurons whose anchor point is outside every mesh
 - [ ] Decide whether mirror twin coverage (1,198 neurons) needs more sources
 - [ ] Reconcile the orphan share with the 25% figure in Winding et al. 2023
-- [ ] Export skeletons in a neuroglancer-readable format (needs the node data that the current export discards after summarizing)
 - [ ] Curated neurotransmitter table from the literature
 - [ ] Curated neuropil innervation table from the papers
 
@@ -85,13 +84,14 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 ### Phase 4: neuroglancer viewer
 
 - [x] Find where the L1 EM image can be read by neuroglancer. The stack info (metadata only) lists five mirrors of 512 x 512 JPEG tiles in CATMAID's tile format (source type 4): Virtual Fly Brain, two at the MRC LMB, Janelia and Magdeburg. The listing of neuroglancer's data sources and its README show no CATMAID source (precomputed, N5, Zarr, Boss, DVID, Render, NIfTI and Deep Zoom only), so none of these mirrors can be added as an image layer. The volume is 28,128 x 31,840 x 4,841 voxels at 3.8 x 3.8 x 50 nm (about 4.3 TB uncompressed), with the z origin offset by 6,050 nm and 90 broken slices
-- [ ] Decide the EM image question: no image layer at first (3D view of skeletons and meshes only), a converted copy hosted by us (about 4.3 TB uncompressed, which also conflicts with the no-download rule), or an existing public precomputed copy if one is known
-- [ ] Export the skeletons in neuroglancer's precomputed skeleton format (simplified to keep the size manageable) and the CNS and segment volumes as meshes, and choose a static host that sends CORS headers
-- [ ] Choose the neuroglancer deployment that the links point to (FlyWire's version posted large states to its own state server, which L1 does not have, so states must stay small by referencing hosted sources)
-- [ ] Decide how skeletons reach neuroglancer: precomputed skeletons written offline (for example with navis) and hosted with the data, or inline line annotations as a fallback for small selections
-- [ ] Decide whether the segment volumes are also shown as meshes
-- [ ] Rewrite the URL builders in `codex/utils/nglui.py` for L1 (nanometre positions, 3.8 x 3.8 x 50 nm voxels) and replace the FlyWire links on cell pages
-- [ ] Hide skeleton thumbnails and neuropil mesh views
+- [x] EM image: the viewer is 3D only (skeletons inside the CNS outline), with no image layer
+- [x] Skeletons are exported in neuroglancer's precomputed skeleton format (`scripts/export_l1_skeletons.py`, simplified with a 200 nm tolerance, which keeps about 11% of the nodes) and load in real neuroglancer
+- [x] The CNS outline and the 26 segment volumes are exported as neuroglancer meshes (`scripts/export_l1_meshes.py`, 708 KB)
+- [x] Hosting: the files live in this public repository (`data/l1_skeletons`, `data/l1_meshes`) and are read from `raw.githubusercontent.com`. Links use the public neuroglancer instance `neuroglancer-demo.appspot.com`. `CODEX_DATA_REF`, `CODEX_DATA_HOST_URL` and `CODEX_NEUROGLANCER_URL` override the branch, the data host and the neuroglancer deployment
+- [x] URL builders in `codex/utils/nglui.py` rewritten for L1 (no `nglui` dependency any more), the FlyWire-named routes renamed (`neuroglancer_url`, `search_results_neuroglancer_url`, `neuroglancer_neuropil_url`), a single cell centers on its soma, and the skeleton thumbnails, the SWC download and the FlyWire links are gone
+- [ ] Check the links on the pushed branch against the real GitHub URLs (set `CODEX_DATA_REF` to the branch until it is merged, because the default is `main`)
+- [ ] Tune the camera (projection scale) and the look of the skeletons and of the CNS outline in a real browser
+- [ ] Offer an SWC download again from the skeleton data, if wanted
 
 ### Phase 5: tests and CI
 

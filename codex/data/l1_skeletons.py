@@ -116,8 +116,9 @@ def skeleton_info():
     }
 
 
-def volume_info():
-    """A segmentation volume that only carries skeletons. Its single chunk is never read in a 3D view."""
+def segmentation_volume_info(**sources):
+    """A segmentation volume that only carries the given sources (skeletons, meshes, segment
+    properties). Its single chunk is never read in a 3D view."""
     return {
         "@type": "neuroglancer_multiscale_volume",
         "type": "segmentation",
@@ -133,9 +134,14 @@ def volume_info():
                 "voxel_offset": [0, 0, 0],
             }
         ],
-        "skeletons": "skeletons",
-        "segment_properties": "segment_properties",
+        **sources,
     }
+
+
+def volume_info():
+    return segmentation_volume_info(
+        skeletons="skeletons", segment_properties="segment_properties"
+    )
 
 
 def segment_properties_info(names):

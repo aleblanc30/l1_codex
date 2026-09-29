@@ -1,24 +1,10 @@
 """Flask test client for the two Codex blueprints, backed by the testing neuron database."""
 
 import os
-import sys
-import types
-
-
-def _ensure_nglui():
-    """Use a stub when the real nglui (needed only to build viewer links) can't be imported."""
-    try:
-        from nglui import statebuilder  # noqa: F401
-    except ImportError:
-        module = types.ModuleType("nglui")
-        module.statebuilder = types.ModuleType("nglui.statebuilder")
-        sys.modules["nglui"] = module
-        sys.modules["nglui.statebuilder"] = module.statebuilder
 
 
 def make_test_client():
     os.environ.setdefault("FLASK_SECRET_KEY", "test-secret")
-    _ensure_nglui()
 
     from flask import Flask
 

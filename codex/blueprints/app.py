@@ -50,7 +50,6 @@ from codex.service.search import DEFAULT_PAGE_SIZE, pagination_data
 from codex.service.stats import stats_cached
 from codex.utils import nglui
 from codex.utils.formatting import (
-    can_be_flywire_root_id,
     display,
     highlight_annotations,
     synapse_table_to_csv_string,
@@ -59,7 +58,6 @@ from codex.utils.formatting import (
 from codex.utils.graph_algos import distance_matrix
 
 from codex.utils.pathway_vis import pathway_chart_data_rows
-from codex.utils.thumbnails import url_for_skeleton
 from codex import logger
 
 app = Blueprint("app", __name__, url_prefix="/app")
@@ -99,7 +97,6 @@ def stats():
         data_stats=data_stats,
         data_charts=data_charts,
         num_items=num_items,
-        searched_for_root_id=can_be_flywire_root_id(filter_string),
         # If num results is small enough to pass to browser, pass it to allow copying root IDs to clipboard.
         # Otherwise it will be available as downloadable file.
         root_ids_str=(
@@ -158,13 +155,6 @@ def render_neuron_list(
     )
 
     display_data = [neuron_db.get_neuron_data(i) for i in page_ids]
-    skeleton_thumbnail_urls = {
-        nd["root_id"]: (
-            url_for_skeleton(nd["root_id"], file_type="png"),
-            url_for_skeleton(nd["root_id"], file_type="gif"),
-        )
-        for nd in display_data
-    }
     highlighted_terms = {}
     links = {}
     for nd in display_data:
@@ -199,7 +189,6 @@ def render_neuron_list(
         display_data=display_data,
         highlighted_terms=highlighted_terms,
         links=links,
-        skeleton_thumbnail_urls=skeleton_thumbnail_urls,
         # If num results is small enough to pass to browser, pass it to allow copying root IDs to clipboard.
         # Otherwise it will be available as downloadable file.
         root_ids_str=(
@@ -208,7 +197,6 @@ def render_neuron_list(
             else []
         ),
         num_items=len(sorted_search_result_root_ids),
-        searched_for_root_id=can_be_flywire_root_id(filter_string),
         pagination_info=pagination_info,
         page_size=page_size,
         page_size_options=page_size_options,
@@ -378,12 +366,10 @@ def root_ids_from_search_results():
     )
 
 
-@app.route("/search_results_flywire_url")
-def search_results_flywire_url():
+@app.route("/search_results_neuroglancer_url")
+def search_results_neuroglancer_url():
     filter_string = request.args.get("filter_string", "")
     data_version = request.args.get("data_version", "")
-    request.args.get("case_sensitive", 0, type=int)
-    request.args.get("whole_word", 0, type=int)
     NeuronDataFactory.instance().get(data_version)
 
     logger.info(
@@ -395,32 +381,32 @@ def search_results_flywire_url():
     )
 
     url = nglui.url_for_random_sample(
-        sorted_search_result_root_ids,
-        version=data_version or DEFAULT_DATA_SNAPSHOT_VERSION,
-        sample_size=MAX_NEURONS_FOR_DOWNLOAD,
-    )
-    logger.info(
-        f"Redirecting {len(sorted_search_result_root_ids)} results {activity_suffix(filter_string, data_version)} to FlyWire"
+        sorted_search_result_root_ids, sample_size=MAX_NEURONS_FOR_DOWNLOAD
     )
     return ngl_redirect_with_client_check(ngl_url=url)
 
 
-@app.route("/flywire_url")
-def flywire_url():
+@app.route("/neuroglancer_url")
+def neuroglancer_url():
     root_ids = [int(rid) for rid in request.args.getlist("root_ids")]
     data_version = request.args.get("data_version", "")
     log_request = request.args.get("log_request", default=1, type=int)
-    point_to = request.args.get("point_to")
     show_side_panel = request.args.get("show_side_panel", type=int, default=None)
 
+    # A single cell is shown centered on its soma (or root node)
+    position = None
+    if len(root_ids) == 1:
+        neuron_db = NeuronDataFactory.instance().get(data_version)
+        if neuron_db.is_in_dataset(root_ids[0]):
+            positions = neuron_db.get_neuron_data(root_ids[0])["position"]
+            if positions:
+                position = tuple(int(float(c)) for c in positions[0].split())
+
     url = nglui.url_for_root_ids(
-        root_ids,
-        version=data_version or DEFAULT_DATA_SNAPSHOT_VERSION,
-        point_to=point_to,
-        show_side_panel=show_side_panel,
+        root_ids, show_side_panel=show_side_panel, position=position
     )
     if log_request:
-        logger.info(f"Redirecting for {len(root_ids)} root ids to FlyWire, {point_to=}")
+        logger.info(f"Redirecting for {len(root_ids)} root ids to neuroglancer")
     return ngl_redirect_with_client_check(ngl_url=url)
 
 
@@ -877,8 +863,8 @@ def connectivity():
             )
 
 
-@app.route("/flywire_neuropil_url")
-def flywire_neuropil_url():
+@app.route("/neuroglancer_neuropil_url")
+def neuroglancer_neuropil_url():
     selected = request.args.get("selected")
     segment_ids = [REGIONS[r][0] for r in selected.split(",") if r in REGIONS]
     url = nglui.url_for_neuropils(segment_ids)

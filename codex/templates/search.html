@@ -31,24 +31,6 @@
         input_box.form.submit();
         input_box.value = old_val;
     }
-
-    const skeletonThumbnailUrls = {{skeleton_thumbnail_urls|tojson}};
-
-    function hover_row(rowElem, rootID) {
-        const newSrc = skeletonThumbnailUrls[rootID][1];
-        if (rowElem.querySelector(".skeleton_thumbnail").src !== newSrc) {
-            rowElem.querySelector(".skeleton_thumbnail").src = newSrc;
-        }
-        rowElem.querySelector(".thumbnail_3d_link").hidden = false;
-    }
-
-    function unhover_row(rowElem, rootID) {
-        const newSrc = skeletonThumbnailUrls[rootID][0];
-        if (rowElem.querySelector(".skeleton_thumbnail").src !== newSrc) {
-            rowElem.querySelector(".skeleton_thumbnail").src = newSrc;
-        }
-        rowElem.querySelector(".thumbnail_3d_link").hidden = true;
-    }
 </script>
 
 
@@ -77,24 +59,14 @@
         <tbody>
         {% for neuron in display_data %}
         <tr>
-            <td style="padding-left: 10px; margin: 0px;"
-                onmouseover="hover_row(this, '{{neuron.root_id}}');"
-                onmouseleave="unhover_row(this, '{{neuron.root_id}}');">
+            <td style="padding-left: 10px; margin: 0px;">
 
                 <a href="{{url_for('app.cell_details', data_version=data_version, root_id=neuron.root_id)}}" onclick="loading(event);">{{neuron.name}}</a>
                 <br>
                 <small style="font-size: 10px;">{{highlighted_terms.get(neuron.root_id, neuron.root_id)|safe}}</small>
-                <div style="position: relative; text-align: center; color: white; width: 200px; height: 150px;">
-                    <a href="{{url_for('app.cell_details', data_version=data_version, root_id=neuron.root_id)}}" onclick="loading(event);"><img
-                       class="skeleton_thumbnail"
-                       src="{{skeleton_thumbnail_urls.get(neuron.root_id)[0]}}"
-                       border="1px;" style="width:100%; height: 100%;">
-                    </a>
-                    <div class="thumbnail_3d_link" hidden style="position: absolute; bottom: 2px; left: 40px;">
-                        <a class="btn btn-link btn-sm" href="{{url_for('app.flywire_url', data_version=data_version, root_ids=[neuron.root_id])}}"
-                           target="_blank" role="button" title="Render in 3D">3D viewer <i class="fa-solid fa-up-right-from-square"></i></a>
-                    </div>
-                </div>
+                <br>
+                <a class="btn btn-link btn-sm" style="padding-left: 0px;" href="{{url_for('app.neuroglancer_url', data_version=data_version, root_ids=[neuron.root_id])}}"
+                   target="_blank" role="button" title="Render in 3D">3D viewer <i class="fa-solid fa-up-right-from-square"></i></a>
             </td>
             {% if extra_data %}
                 <td style="color:black;">{{extra_data.values_dict.get(neuron.root_id)}}</td>

@@ -198,7 +198,7 @@ function rootIdsFromResult(result) {
 }
 
 function morphologyURLForResult(result) {
-  return `/app/flywire_url?root_ids=${rootIdsFromResult(result).join("&root_ids=")}&show_side_panel=0`;
+  return `/app/neuroglancer_url?root_ids=${rootIdsFromResult(result).join("&root_ids=")}&show_side_panel=0`;
 }
 
 function connectivityURLForResult(result, headless = 1) {
