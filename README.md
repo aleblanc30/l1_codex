@@ -65,12 +65,16 @@ The app needs about 200 MB of memory and starts in under a second. The repositor
 `Dockerfile` that runs it with gunicorn, and a `render.yaml` for [Render](https://render.com), whose free
 web services sleep when idle and wake on the next request:
 
-1. In Render, choose New, then Blueprint, and select this repository and the `main` branch.
-2. Render builds the image and generates `FLASK_SECRET_KEY`. Nothing else has to be set.
+1. In Render, choose New, then Web Service, connect this repository and pick the branch. Set the language
+   (runtime) to Docker and the instance type to Free. No environment variable is required.
+2. Alternatively, choose New, then Blueprint, and Render reads `render.yaml` from the branch you select.
+   The file must exist on that branch.
 
-Any other host that runs Docker images works the same way: set `FLASK_SECRET_KEY` to a random secret and
-give the container the port to listen on in `PORT`. Optional settings:
+Any other host that runs Docker images works the same way: give the container the port to listen on in
+`PORT`. Optional settings:
 
+- `FLASK_SECRET_KEY`: a random secret for Flask. The app uses no sessions, so without it a random key is
+  generated at each start
 - `CODEX_DATA_HOST_URL`: where the viewer reads the skeleton and mesh files from (default: the Pages site of
   this repository). To try a branch before it is merged, use
   `https://raw.githubusercontent.com/<user>/<repository>/<branch>`

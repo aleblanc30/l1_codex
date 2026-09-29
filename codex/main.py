@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from flask import Flask, request, redirect, url_for
 
@@ -42,7 +43,13 @@ def page_not_found(e):
 
 # TODO more handlers for other errors
 
-codex.secret_key = os.environ["FLASK_SECRET_KEY"]
+# The app does not use sessions, so the key is optional. Without one, a random key is generated for this
+# process (with several worker processes each would have its own, which matters only if sessions are used).
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key:
+    logger.warning("FLASK_SECRET_KEY is not set, using a random key for this process")
+    secret_key = secrets.token_hex(32)
+codex.secret_key = secret_key
 codex.config["PERMANENT_SESSION_LIFETIME"] = 12 * 31 * 24 * 60 * 60  # 12 months
 codex.register_blueprint(
     base
