@@ -117,23 +117,23 @@ class TestMotifSearchQuery(TestCase):
     def test_fetch_feasible_connections(self):
         neuron_db = get_testing_neuron_data_factory().get()
         edge_constraints = [
-            EdgeConstraints(regions=["GNG"], min_synapse_count=6, nt_type=None),
-            EdgeConstraints(regions=["LAL_L"], min_synapse_count=10, nt_type="ACH"),
+            EdgeConstraints(regions=["BRAIN_L"], min_synapse_count=6, nt_type=None),
+            EdgeConstraints(regions=["A1_L"], min_synapse_count=10, nt_type="UNKNOWN"),
         ]
         cset1 = set(neuron_db.search("side == left"))
         cset2 = set(neuron_db.search("side == right"))
-        self.assertGreater(len(cset1), 100)
-        self.assertGreater(len(cset2), 100)
+        self.assertEqual(787, len(cset1))
+        self.assertEqual(719, len(cset2))
         self.assertEqual(0, len(cset1.intersection(cset2)))
         feasible_connections = MotifSearchQuery._fetch_feasible_connections(
             neuron_db=neuron_db,
             edge_constraints_list=edge_constraints,
             candidate_sets_list=[cset1, cset2],
         )
-        self.assertGreater(len(feasible_connections), 200)
+        self.assertEqual(1138, len(feasible_connections))
         for r in feasible_connections:
             self.assertTrue(
                 r[0] in cset1 and r[1] in cset2 or r[0] in cset2 and r[1] in cset1
             )
-            self.assertTrue(r[2] in ["GNG", "LAL_L"])
+            self.assertTrue(r[2] in ["BRAIN_L", "A1_L"])
             self.assertTrue(r[3] >= 6)

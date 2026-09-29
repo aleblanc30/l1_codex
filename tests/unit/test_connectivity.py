@@ -14,7 +14,11 @@ class ConnectivityTest(TestCase):
         query = "*"
 
         rids = self.neuron_db.search(query)
-        self.assertEqual(set(rids), set(self.neuron_db.neuron_data.keys()))
+        # the aggregate nodes for orphaned sites are not listed in search results
+        self.assertEqual(
+            set(rids),
+            set(self.neuron_db.neuron_data.keys()) - self.neuron_db.aggregate_ids,
+        )
 
         contable = self.neuron_db.connections(
             ids=rids,
@@ -22,7 +26,7 @@ class ConnectivityTest(TestCase):
             induced=True,
             min_syn_count=None,
         )
-        self.assertEqual(3869878, len(contable))
+        self.assertEqual(145910, len(contable))
 
         with patch("codex.utils.graph_vis.render_template") as mocked:
             network_html = compile_network_html(
@@ -51,5 +55,5 @@ class ConnectivityTest(TestCase):
                     hide_weights=False,
                     log_request=False,
                 )
-                self.assertEqual(136, mocked_url_for.call_count)
+                self.assertEqual(93, mocked_url_for.call_count)
                 self.assertTrue("render_template" in str(network_html))

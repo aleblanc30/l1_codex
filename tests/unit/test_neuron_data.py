@@ -21,7 +21,10 @@ from codex.utils.formatting import (
 )
 from codex.utils.parsing import tokenize
 from tests import TEST_DATA_ROOT_PATH, log_dev_url_for_root_ids, get_testing_neuron_db
-from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
+from codex.data.neurotransmitters import (
+    NEURO_TRANSMITTER_CHOICES,
+    NEURO_TRANSMITTER_NAMES,
+)
 
 
 class NeuronDataTest(TestCase):
@@ -43,7 +46,8 @@ class NeuronDataTest(TestCase):
                     yield attrib_name, attrib_value
 
     def test_index_data(self):
-        self.assertGreater(len(self.neuron_db.neuron_data), 100000)
+        # 5,013 skeletons plus the 54 aggregate nodes for orphaned synaptic sites
+        self.assertEqual(5013 + 54, len(self.neuron_db.neuron_data))
 
         def check_num_values_missing(attrib, expected_count):
             num_missing = len(
@@ -55,54 +59,79 @@ class NeuronDataTest(TestCase):
                 f"Too many missing values for attribute: {attrib}",
             )
 
+        # Attributes that the L1 export does not fill are missing for every cell
+        everything = len(self.neuron_db.neuron_data)
         expected_missing_value_bounds = {
-            "label": 79000,
-            "super_class": 5200,
-            "class": 37000,
-            "sub_class": 122000,
-            "cell_type": 115000,
-            "hemilineage": 128000,
-            "flow": 5150,
-            "side": 14000,
-            "nerve": 130000,
-            "input_cells": 18500,
-            "input_neuropils": 18500,
-            "input_synapses": 18500,
-            "output_cells": 17000,
-            "output_neuropils": 17000,
-            "output_synapses": 17000,
-            "nt_type": 19658,
-            "nt_type_score": 19658,
-            "ach_avg": 17200,
-            "da_avg": 35500,
-            "gaba_avg": 31000,
-            "glut_avg": 32000,
-            "oct_avg": 89000,
-            "ser_avg": 98000,
-            "similar_cell_scores": 20000,
-            "similar_connectivity_scores": 20000,
-            "marker": 139255,
-            "mirror_twin_root_id": 139255,
-            "length_nm": 1000,
-            "area_nm": 1000,
-            "size_nm": 1000,
-            "connectivity_tag": 21000,
+            "mirror_twin_root_id": 3900,
+            "similar_cell_scores": everything,
+            "nt_type_score": everything,
+            "ach_avg": everything,
+            "da_avg": everything,
+            "gaba_avg": everything,
+            "glut_avg": everything,
+            "oct_avg": everything,
+            "ser_avg": everything,
+            "flow": everything,
+            "super_class": everything,
+            "class": everything,
+            "sub_class": everything,
+            "hemilineage": everything,
+            "nerve": everything,
+            "connectivity_tag": everything,
+            "area_nm": everything,
+            "size_nm": everything,
+            "cell_type": 3900,
+            "side": 3600,
+            "papers": 54,
+            "annotations": 54,
+            "position": 54,
+            "length_nm": 54,
+            "node_count": 54,
+            "has_soma": 800,
+            "is_aggregate": 5013,
+            "input_cells": 950,
+            "input_neuropils": 950,
+            "input_synapses": 950,
+            "total_input_synapses": 950,
+            "output_cells": 1200,
+            "output_neuropils": 1200,
+            "output_synapses": 1200,
+            "total_output_synapses": 1200,
+            "orphan_output_synapses": 1400,
+            "orphan_input_synapses": 1650,
         }
 
         for k in NEURON_DATA_ATTRIBUTE_TYPES.keys():
             check_num_values_missing(k, expected_missing_value_bounds.get(k, 0))
 
     def test_annotations_web_safe(self):
+        # Names, cell types and annotations are kept verbatim (quotes, apostrophes and so on), and the pages
+        # escape them when they render (see test_html_escaping*). What is checked here is that the stored
+        # attributes are trimmed and free of control characters, and that verbatim really means unchanged.
+        # Raw annotations are working notes of the CATMAID users, so they are excluded.
+        verbatim_examples = 0
         for attrib_name, attrib_value in self.all_annotations():
-            if isinstance(attrib_value, str):
-                self.assertEqual(
-                    attrib_value,
-                    make_web_safe(attrib_value),
-                    f"Non web safe annotation '{attrib_value}' for attribute '{attrib_name}'",
-                )
+            if not isinstance(attrib_value, str):
+                continue
+            if attrib_value != make_web_safe(attrib_value):
+                verbatim_examples += 1
+            if attrib_name == "annotations":
+                continue
+            self.assertEqual(
+                attrib_value.strip(),
+                attrib_value,
+                f"Untrimmed text '{attrib_value}' for attribute '{attrib_name}'",
+            )
+            self.assertTrue(
+                attrib_value.isprintable(),
+                f"Control characters in '{attrib_value!r}' for attribute '{attrib_name}'",
+            )
+        self.assertGreater(verbatim_examples, 0)
 
     def test_annotations_meaningful(self):
-        excluded_attributes = ["position", "label"]
+        # nt_type is the UNKNOWN placeholder until a curated table exists, and the raw annotations are working
+        # notes of the CATMAID users, some of them numeric or symbols only
+        excluded_attributes = ["position", "nt_type", "annotations"]
         empty_vals, nonempty_vals = 0, 0
         for attrib_name, attrib_value in self.all_annotations():
             self.assertIsNotNone(
@@ -120,40 +149,39 @@ class NeuronDataTest(TestCase):
                 f"Meaningless annotation '{attrib_value}' for attribute '{attrib_name}'",
             )
 
+        # Attributes the export does not fill are empty for every cell (flow, class, hemilineage and others)
         self.assertGreater(
-            nonempty_vals, 10 * empty_vals, f"Too many empty annotations: {empty_vals}"
+            nonempty_vals, 2 * empty_vals, f"Too many empty annotations: {empty_vals}"
         )
 
     def test_annotations(self):
-        neurons_with_labels = [
-            n for n in self.neuron_db.neuron_data.values() if n["label"]
+        neurons_with_cell_types = [
+            n for n in self.neuron_db.neuron_data.values() if n["cell_type"]
         ]
-        self.assertGreater(len(neurons_with_labels), 25000)
+        self.assertEqual(1203, len(neurons_with_cell_types))
 
-        neurons_with_annotations = [
-            n for n in self.neuron_db.neuron_data.values() if n["label"]
+        neurons_with_papers = [
+            n for n in self.neuron_db.neuron_data.values() if n["papers"]
         ]
-        self.assertEqual(len(neurons_with_labels), len(neurons_with_annotations))
+        self.assertEqual(5013, len(neurons_with_papers))
 
         for n in self.neuron_db.neuron_data.values():
             for col in [
                 "input_neuropils",
                 "output_neuropils",
-                "label",
+                "cell_type",
+                "papers",
                 "position",
             ]:
                 self.assertEqual(len(set(n[col])), len(n[col]))
-            self.assertEqual(len(n["supervoxel_id"]), len(n["position"]))
+            self.assertEqual(len(n["papers"]) > 0, not n["is_aggregate"])
 
         # closest term search
         self.assertEqual(
-            self.neuron_db.closest_token("blobe", case_sensitive=False), ("lobe", 1)
+            self.neuron_db.closest_token("mpnn", case_sensitive=False), ("mpn", 1)
         )
         self.assertEqual(
-            self.neuron_db.closest_token("blobe", case_sensitive=True), ("lobe", 1)
-        )
-        self.assertEqual(
-            self.neuron_db.closest_token("BLOBE", case_sensitive=True), ("LB3", 3)
+            self.neuron_db.closest_token("blobe", case_sensitive=False), ("alone", 2)
         )
 
         # don't suggest in structured queries
@@ -164,72 +192,85 @@ class NeuronDataTest(TestCase):
             self.neuron_db.closest_token("BLOBE && Lb3", case_sensitive=False),
             (None, None),
         )
+        # nor for cell ids
+        self.assertEqual(
+            self.neuron_db.closest_token("12345", case_sensitive=False), (None, None)
+        )
 
     def test_search(self):
         # search results
-        self.assertGreater(len(self.neuron_db.search("da")), 900)
-        self.assertEqual(len(self.neuron_db.search("dadadeadbeef")), 0)
+        self.assertEqual(225, len(self.neuron_db.search("kc")))
+        self.assertEqual(445, len(self.neuron_db.search("da")))
+        self.assertEqual(0, len(self.neuron_db.search("dadadeadbeef")))
+        # word prefixes and substrings of skeleton names, cell types and papers
+        self.assertGreater(len(self.neuron_db.search("Eichler")), 300)
 
     def test_structured_search(self):
         # structured search
-        gaba_rids = self.neuron_db.search("nt_type == gaba")
-        self.assertGreater(len(gaba_rids), 1000)
+        unknown_rids = self.neuron_db.search("nt_type == unknown")
+        self.assertEqual(5013, len(unknown_rids))  # aggregates are left out of results
+        self.assertEqual(0, len(self.neuron_db.search("nt_type != unknown")))
+        for rid in unknown_rids:
+            self.assertEqual("UNKNOWN", self.neuron_db.get_neuron_data(rid)["nt_type"])
+
+        # a transmitter that no neuron has yet
+        self.assertEqual(0, len(self.neuron_db.search("nt_type == ACH")))
         self.assertEqual(
-            len(self.neuron_db.neuron_data),
-            len(gaba_rids) + len(self.neuron_db.search("nt_type != gaba")),
+            len(unknown_rids), len(self.neuron_db.search("nt_type != ACH"))
         )
-        for rid in gaba_rids:
-            self.assertEqual("GABA", self.neuron_db.get_neuron_data(rid)["nt_type"])
 
-        ach_rids = self.neuron_db.search("nt_type == ACH")
-        self.assertGreater(len(ach_rids), 1000)
-        self.assertEqual(
-            len(self.neuron_db.neuron_data),
-            len(ach_rids) + len(self.neuron_db.search("nt_type != ACH")),
-        )
-        for rid in ach_rids:
-            self.assertEqual("ACH", self.neuron_db.get_neuron_data(rid)["nt_type"])
-
-        gaba_and_ach_rids = self.neuron_db.search("nt_type == ACH && nt_type == gaba")
-        self.assertEqual(0, len(gaba_and_ach_rids))
-
-        gaba_or_ach_rids = self.neuron_db.search("nt_type == ACH || nt_type == gaba")
-        self.assertEqual(len(ach_rids) + len(gaba_rids), len(gaba_or_ach_rids))
+        left_rids = self.neuron_db.search("side == left")
+        right_rids = self.neuron_db.search("side == right")
+        self.assertEqual(787, len(left_rids))
+        self.assertEqual(0, len(self.neuron_db.search("side == left && side == right")))
+        left_or_right_rids = self.neuron_db.search("side == left || side == right")
+        self.assertEqual(len(left_rids) + len(right_rids), len(left_or_right_rids))
 
         ids_with_name = self.neuron_db.search("{has} name")
         ids_without_name = self.neuron_db.search("{not} name")
-        self.assertEqual(len(self.neuron_db.neuron_data), len(ids_with_name))
+        self.assertEqual(5013, len(ids_with_name))
         self.assertEqual(0, len(ids_without_name))
 
-        ids_with_class = self.neuron_db.search("$$ class")
-        ids_without_class = self.neuron_db.search("!$ class")
+        ids_with_cell_type = self.neuron_db.search("$$ cell_type")
+        ids_without_cell_type = self.neuron_db.search("!$ cell_type")
+        self.assertEqual(1203, len(ids_with_cell_type))
         self.assertEqual(
-            len(self.neuron_db.neuron_data),
-            len(ids_with_class) + len(ids_without_class),
+            len(self.neuron_db.search("{has} name")),
+            len(ids_with_cell_type) + len(ids_without_cell_type),
         )
         self.assertEqual(
-            set(ids_with_class),
+            set(ids_with_cell_type),
             set(
                 [
                     nd["root_id"]
                     for nd in self.neuron_db.neuron_data.values()
-                    if nd["class"]
+                    if nd["cell_type"] and not nd["is_aggregate"]
                 ]
             ),
         )
 
     def test_structured_search_case(self):
         # case sensitive vs insensitive search
-        class_matches = self.neuron_db.search("class == dn", case_sensitive=True)
-        self.assertEqual(len(class_matches), 0)
+        self.assertEqual(
+            223, len(self.neuron_db.search("cell_type == kc", case_sensitive=False))
+        )
+        self.assertEqual(
+            0, len(self.neuron_db.search("cell_type == kc", case_sensitive=True))
+        )
+        self.assertEqual(
+            223, len(self.neuron_db.search("cell_type == KC", case_sensitive=True))
+        )
 
         # starts with op
-        self.assertGreater(len(self.neuron_db.search("label {starts_with} LC")), 350)
-        self.assertGreater(len(self.neuron_db.search("label {starts_with} lc")), 350)
+        self.assertEqual(808, len(self.neuron_db.search("cell_type {starts_with} M")))
+        self.assertEqual(808, len(self.neuron_db.search("cell_type {starts_with} m")))
         self.assertEqual(
-            len(self.neuron_db.search("label {starts_with} lc", case_sensitive=True)), 0
+            42,
+            len(
+                self.neuron_db.search("cell_type {starts_with} m", case_sensitive=True)
+            ),
         )
-        self.assertGreater(len(self.neuron_db.search("id {starts_with} 72")), 65000)
+        self.assertEqual(232, len(self.neuron_db.search("id {starts_with} 2")))
 
     def test_structured_search_lists(self):
         # explicit searches
@@ -262,63 +303,97 @@ class NeuronDataTest(TestCase):
         )
 
     def test_structured_search_misc(self):
-        self.assertLess(len(self.neuron_db.search("gaba && nt_type != gaba")), 700)
+        self.assertEqual(0, len(self.neuron_db.search("kc && nt_type != unknown")))
 
+        # a single number that is a cell id finds that cell only
+        self.assertEqual([29], self.neuron_db.search("29"))
+
+        # so does a list of ids, separated by spaces or commas
+        for query in ["29 11995", "29,11995", "29, 11995", " 29 ,  11995 "]:
+            self.assertEqual([29, 11995], self.neuron_db.search(query), query)
+        self.assertEqual([11995, 29], self.neuron_db.search("11995 29"))
+        self.assertEqual([29, 11995], self.neuron_db.search("29 11995 29"))
+        self.assertEqual([29, 11995], sorted(self.neuron_db.search("id << 29,11995")))
+
+        # ids that are not in the data are skipped, and none of them gives no results
+        self.assertEqual([29], self.neuron_db.search("29 999999999"))
+        self.assertEqual([], self.neuron_db.search("999999998 999999999"))
+
+        # a query that is not only ids is a text search
+        self.assertNotEqual([29, 11995], self.neuron_db.search("29 11995 kc"))
+
+    def test_search_by_ids_and_aggregates(self):
+        aggregate_id = min(self.neuron_db.aggregate_ids)
+        self.assertEqual([aggregate_id], self.neuron_db.search(str(aggregate_id)))
+        # aggregates are listed when a query names them by id, among other ids too
         self.assertEqual(
-            2, len(self.neuron_db.search("720575940643084488 720575940643467886"))
+            [29, aggregate_id], self.neuron_db.search(f"29, {aggregate_id}")
         )
-        self.assertEqual(
-            2, len(self.neuron_db.search("720575940643084488,720575940643467886"))
+        # and not otherwise
+        self.assertFalse(
+            set(self.neuron_db.search("kc")) & self.neuron_db.aggregate_ids
         )
-        self.assertEqual(
-            2, len(self.neuron_db.search("720575940643084488, 720575940643467886"))
-        )
+
+    def test_closest_token_ignores_id_lists(self):
+        for query in ["29 11995", "29,11995", "12345"]:
+            self.assertEqual(
+                (None, None), self.neuron_db.closest_token(query, case_sensitive=False)
+            )
 
     def test_structured_search_operator_combos(self):
-        self.assertGreater(
-            len(self.neuron_db.search("fru {and} central && nt_type != gaba")), 500
+        # {and} chains free form terms, as && does
+        self.assertEqual(
+            224, len(self.neuron_db.search("kc {and} Winding && nt_type != gaba"))
+        )
+        self.assertEqual(
+            109, len(self.neuron_db.search("kc {and} Winding && side == left"))
+        )
+        self.assertEqual(
+            115, len(self.neuron_db.search("kc {and} Winding && side != left"))
         )
 
     def test_downstream_upstream_queries(self):
-        rid = self.neuron_db.search("cell_type == CT1")[0]
+        rid = 29  # a Kenyon cell
+        self.assertEqual("KC", self.neuron_db.get_neuron_data(rid)["cell_type"][0])
         downstream = self.neuron_db.search("{downstream} " + str(rid))
-        self.assertEqual(6399, len(downstream))
+        self.assertEqual(87, len(downstream))
 
         upstream = self.neuron_db.search("{upstream} " + str(rid))
-        self.assertEqual(5080, len(upstream))
+        self.assertEqual(69, len(upstream))
 
         reciprocal = self.neuron_db.search("{reciprocal} " + str(rid))
-        self.assertEqual(3684, len(reciprocal))
+        self.assertEqual(41, len(reciprocal))
+
+        # aggregate nodes never appear as partners
+        for rids in (downstream, upstream, reciprocal):
+            self.assertFalse(set(rids) & self.neuron_db.aggregate_ids)
 
     def test_neuropil_queries(self):
-        self.assertGreater(
-            len(self.neuron_db.search("input_neuropil {equal} gng")), 5000
+        self.assertEqual(
+            2051, len(self.neuron_db.search("input_neuropil {equal} BRAIN_L"))
         )
-        self.assertGreater(
-            len(self.neuron_db.search("input_neuropil {equal} accessory medulla left")),
-            50,
-        )
-        self.assertGreater(
-            len(self.neuron_db.search("input_neuropil {in} medulla")), 10000
+        self.assertEqual(479, len(self.neuron_db.search("input_neuropil {equal} A1_L")))
+        self.assertEqual(
+            516, len(self.neuron_db.search("input_neuropil {in} A1_L,A2_L"))
         )
 
     def test_contains_queries(self):
-        self.assertGreater(len(self.neuron_db.search("label {contains} dsx")), 100)
+        self.assertEqual(223, len(self.neuron_db.search("cell_type {contains} KC")))
         self.assertEqual(
             len(
                 self.neuron_db.search(
-                    "label {contains} dsx && label {not_contains} dsx"
+                    "cell_type {contains} KC && cell_type {not_contains} KC"
                 )
             ),
             0,
         )
-        self.assertGreater(
+        self.assertEqual(
+            223,
             len(
                 self.neuron_db.search(
-                    "label {contains} dsx && label {not_contains} fru"
+                    "cell_type {contains} KC && cell_type {not_contains} mPN"
                 )
             ),
-            80,
         )
 
     def test_not_connected_cells(self):
@@ -350,189 +425,43 @@ class NeuronDataTest(TestCase):
         self.assertEqual(set(REGIONS.keys()), res)
 
     def test_classes(self):
-        expected_list = [
-            "ALIN",
-            "ALLN",
-            "ALON",
-            "ALPN",
-            "AN",
-            "CX",
-            "DAN",
-            "Kenyon_Cell",
-            "LHCENT",
-            "LHLN",
-            "MBIN",
-            "MBON",
-            "TPN",
-            "TuBu",
-            "bilateral",
-            "gustatory",
-            "hygrosensory",
-            "mechanosensory",
-            "ocellar",
-            "olfactory",
-            "optic_lobe_intrinsic",
-            "optic_lobes",
-            "pars_intercerebralis",
-            "pars_lateralis",
-            "thermosensory",
-            "unknown_sensory",
-            "visual",
-        ]
-        self.assertEqual(expected_list, self.neuron_db.unique_values("class"))
+        # the export has no classes, sub classes, super classes, hemilineages or connectivity tags yet
+        self.assertEqual([], self.neuron_db.unique_values("class"))
 
     def test_super_classes(self):
-        expected_list = [
-            "ascending",
-            "central",
-            "descending",
-            "endocrine",
-            "motor",
-            "optic",
-            "sensory",
-            "visual_centrifugal",
-            "visual_projection",
-        ]
-        self.assertEqual(expected_list, self.neuron_db.unique_values("super_class"))
+        self.assertEqual([], self.neuron_db.unique_values("super_class"))
 
     def test_sub_classes(self):
-        expected_list = [
-            "AN_AMMC_SAD",
-            "AN_AVLP",
-            "AN_AVLP_GNG",
-            "AN_AVLP_PVLP",
-            "AN_AVLP_SAD",
-            "AN_FLA",
-            "AN_FLA_GNG",
-            "AN_FLA_PRW",
-            "AN_FLA_SMP",
-            "AN_FLA_VES",
-            "AN_GNG",
-            "AN_GNG_AMMC",
-            "AN_GNG_AVLP",
-            "AN_GNG_FLA",
-            "AN_GNG_IPS",
-            "AN_GNG_PRW",
-            "AN_GNG_SAD",
-            "AN_GNG_SPS",
-            "AN_GNG_VES",
-            "AN_GNG_WED",
-            "AN_IPS_GNG",
-            "AN_IPS_LAL",
-            "AN_IPS_SPS",
-            "AN_IPS_WED",
-            "AN_LAL",
-            "AN_LH_AVLP",
-            "AN_PRW_FLA",
-            "AN_SAD_GNG",
-            "AN_SLP_AVLP",
-            "AN_SLP_LH",
-            "AN_SMP",
-            "AN_SMP_FLA",
-            "AN_SPS_GNG",
-            "AN_SPS_IPS",
-            "AN_VES_GNG",
-            "AN_VES_WED",
-            "AN_WED_GNG",
-            "AN_multi",
-            "DRA",
-            "L1-5",
-            "SA_DMT_ADMN",
-            "SA_DMT_DMetaN",
-            "SA_MDA",
-            "SA_VTV_DProN",
-            "SA_VTV_PDMN",
-            "SA_VTV_pro_meso_meta",
-            "accessory_pharyngeal_nerve_sensory_group1",
-            "accessory_pharyngeal_nerve_sensory_group2",
-            "auditory",
-            "bitter",
-            "centrifugal",
-            "circadian_clock",
-            "columnar",
-            "descending",
-            "distal_medulla",
-            "distal_medulla_dorsal_rim_area",
-            "eye_bristle",
-            "head_bristle",
-            "lamina_intrinsic",
-            "lamina_monopolar",
-            "lamina_tangential",
-            "lamina_wide_field",
-            "lobula_intrinsic",
-            "lobula_lobula_plate_tangential",
-            "lobula_medulla_amacrine",
-            "lobula_medulla_tangential",
-            "lobula_plate_intrinsic",
-            "low-salt",
-            "medulla_intrinsic",
-            "medulla_lobula_lobula_plate_amacrine",
-            "medulla_lobula_tangential",
-            "multiglomerular",
-            "ocellar",
-            "ocellar_interneuron",
-            "pharyngeal_nerve_sensory_group1",
-            "pharyngeal_nerve_sensory_group2",
-            "photo_receptor",
-            "proximal_distal_medulla_tangential",
-            "proximal_medulla",
-            "ring_neuron",
-            "serpentine_medulla",
-            "sugar/water",
-            "t1_neuron",
-            "t2_neuron",
-            "t3_neuron",
-            "t4_neuron",
-            "t5_neuron",
-            "tangential",
-            "taste_peg",
-            "translobula_plate",
-            "transmedullary",
-            "transmedullary_y",
-            "uniglomerular",
-            "water_PN",
-            "weirdos",
-            "y_neuron",
-        ]
-        self.assertEqual(expected_list, self.neuron_db.unique_values("sub_class"))
+        self.assertEqual([], self.neuron_db.unique_values("sub_class"))
 
     def test_cell_types(self):
-        expected_list_length = 8547
+        # the MB nomenclature sub-annotations
+        expected_list_length = 856
         self.assertEqual(
             expected_list_length, len(self.neuron_db.unique_values("cell_type"))
         )
 
     def test_hemilineage(self):
-        expected_list_length = 199
-        self.assertEqual(
-            expected_list_length, len(self.neuron_db.unique_values("hemilineage"))
-        )
+        self.assertEqual([], self.neuron_db.unique_values("hemilineage"))
 
     def test_connectivity_tag(self):
-        expected_list_length = 8
-        self.assertEqual(
-            expected_list_length, len(self.neuron_db.unique_values("connectivity_tag"))
-        )
+        self.assertEqual([], self.neuron_db.unique_values("connectivity_tag"))
 
     def test_sizes(self):
+        # skeleton cable length is in the export, surface area and volume are not
         for nd in self.neuron_db.neuron_data.values():
             ln = nd["length_nm"]
-            area = nd["area_nm"]
-            volume = nd["size_nm"]
-            if ln:
-                self.assertGreater(ln, 1000)
-                self.assertGreater(area, 1000 * 1000)
-                self.assertGreater(volume, 1000 * 1000)
-                self.assertGreater(area, ln)
-                self.assertGreater(volume, area + ln)
+            self.assertFalse(nd["area_nm"])
+            self.assertFalse(nd["size_nm"])
+            if nd["is_aggregate"]:
+                self.assertEqual(0, ln)
+            else:
+                self.assertGreater(ln, 0)
+                self.assertGreater(nd["node_count"], 0)
 
     def test_get_neuron_data(self):
-        self.assertGreater(
-            len(self.neuron_db.get_neuron_data(root_id=720575940624056624)), 5
-        )
-        self.assertGreater(
-            len(self.neuron_db.get_neuron_data(root_id="720575940624056624")), 5
-        )
+        self.assertGreater(len(self.neuron_db.get_neuron_data(root_id=29)), 5)
+        self.assertGreater(len(self.neuron_db.get_neuron_data(root_id="29")), 5)
 
     def test_thumbnails(self):
         # Run this first to collect existing skeleton root ids:
@@ -545,40 +474,71 @@ class NeuronDataTest(TestCase):
             )
 
     def test_attribute_coverage(self):
+        # Attributes of the L1 export that are filled for most of the 5,013 skeletons.
         sparse_attrs = {
             "similar_cell_scores",
             "mirror_twin_root_id",
-            "similar_connectivity_scores",
-            "label",
-            "nerve",
+            "cell_type",
+            "side",
+            "is_aggregate",
+            "has_soma",
+            "input_cells",
+            "input_synapses",
+            "input_neuropils",
+            "total_input_synapses",
+            "output_cells",
+            "output_synapses",
+            "output_neuropils",
+            "total_output_synapses",
+            "orphan_output_synapses",
+            "orphan_input_synapses",
+        }
+        # Attributes that the export does not provide (yet), so that they are empty for every cell
+        empty_attrs = {
+            "nt_type_score",
+            "ach_avg",
             "da_avg",
+            "gaba_avg",
+            "glut_avg",
             "oct_avg",
             "ser_avg",
+            "flow",
+            "super_class",
             "class",
             "sub_class",
-            "cell_type",
             "hemilineage",
+            "nerve",
             "connectivity_tag",
-            "marker",
+            "area_nm",
+            "size_nm",
         }
+        num_cells = len(self.neuron_db.neuron_data)
         for k, v in NEURON_DATA_ATTRIBUTE_TYPES.items():
-            if k in sparse_attrs:
-                continue
             num_vals = len([n[k] for n in self.neuron_db.neuron_data.values() if n[k]])
-            self.assertGreater(num_vals / len(self.neuron_db.neuron_data), 0.85, k)
+            if k in empty_attrs:
+                self.assertEqual(0, num_vals, k)
+            elif k in sparse_attrs:
+                continue
+            else:
+                self.assertGreater(num_vals / num_cells, 0.85, k)
 
     def test_connection_filters(self):
-        rid_list = list(self.neuron_db.neuron_data.keys())[:100]
+        rid_list = sorted(self.neuron_db.neuron_data.keys())[:100]
         cons = self.neuron_db.connections(
-            rid_list, induced=False, min_syn_count=5, nt_type="GABA"
+            rid_list, induced=False, min_syn_count=5, nt_type="UNKNOWN"
         )
         self.assertGreater(len(cons), 0)
         for r in cons:
             self.assertTrue(r[0] in rid_list or r[1] in rid_list)
             self.assertGreaterEqual(r[3], 5)
-            self.assertEqual("GABA", r[4])
+            self.assertEqual("UNKNOWN", r[4])
 
-        rid_list = list(self.neuron_db.neuron_data.keys())[:10000]
+        # no connection has a known transmitter yet
+        self.assertEqual(
+            0, len(self.neuron_db.connections(rid_list, induced=False, nt_type="GABA"))
+        )
+
+        rid_list = sorted(self.neuron_db.neuron_data.keys())[:2000]
         cons = self.neuron_db.connections(rid_list, induced=True)
         self.assertGreater(len(cons), 0)
         for r in cons:
@@ -595,117 +555,36 @@ class NeuronDataTest(TestCase):
             self.assertEqual(cons1, cons2)
 
     def test_nt_types_consistency(self):
-        rid_to_nt_counts = {}
+        # Every connection and every cell has the UNKNOWN transmitter until a curated table is provided
         for r in self.neuron_db.connections_.all_rows():
-            self.assertTrue(r[4] in NEURO_TRANSMITTER_NAMES.keys())
-            ntd = rid_to_nt_counts.setdefault(r[0], {})
-            ntd[r[4]] = ntd.get(r[4], 0) + r[3]
-
-        rid_to_con_nts = {rid: max(v, key=v.get) for rid, v in rid_to_nt_counts.items()}
-
-        def vague_nt_type(ndata):
-            scores = sorted(
-                [ndata[f"{ntt.lower()}_avg"] for ntt in NEURO_TRANSMITTER_NAMES.keys()],
-                reverse=True,
-            )
-            return scores[0] <= 0.2 or scores[0] <= scores[1] + 0.1
-
-        eq, df, missing_con, vague = 0, 0, 0, 0
-        diff_pairs = defaultdict(int)
-        for rid, nd in self.neuron_db.neuron_data.items():
-            if nd["nt_type"] == rid_to_con_nts.get(rid):
-                eq += 1
-            elif not rid_to_con_nts.get(rid):
-                missing_con += 1
-            elif vague_nt_type(nd):
-                vague += 1
-            else:
-                diff_pairs[(nd["nt_type"], rid_to_con_nts.get(rid))] += 1
-                df += 1
-        print(f"{eq=} {df=} {missing_con=} {vague=}")
-        print(diff_pairs)
-        self.assertGreater(2000, df)
+            self.assertTrue(r[4] in NEURO_TRANSMITTER_CHOICES.keys())
+            self.assertEqual("UNKNOWN", r[4])
+        for nd in self.neuron_db.neuron_data.values():
+            self.assertEqual("UNKNOWN", nd["nt_type"])
 
     def test_find_similar_cells(self):
-        cell_ids = sorted(self.neuron_db.neuron_data.keys())[10000:10020]
+        cell_ids = sorted(self.neuron_db.neuron_data.keys())[1000:1020]
         similar_cell_scores = {}
         for cell_id in cell_ids:
             dct = self.neuron_db.get_similar_connectivity_cells(
-                cell_id, with_same_attributes="side,super_class"
+                cell_id, with_same_attributes="side"
             )
             for k, v in dct.items():
                 if k in cell_ids:
                     continue
                 if k not in similar_cell_scores or v > similar_cell_scores[k]:
                     similar_cell_scores[k] = v
-        self.assertEqual(1465, len(similar_cell_scores))
+        self.assertGreater(len(similar_cell_scores), 0)
+        # super_class is empty for every cell, so requiring it to match does not remove candidates
+        for k in similar_cell_scores:
+            self.assertIn(k, self.neuron_db.neuron_data)
 
     def test_dynamic_ranges(self):
+        # Only attributes with values in the export have a range
         self.assertEqual(
             {
-                "data_class_range": [
-                    "optic_lobe_intrinsic",
-                    "visual",
-                    "Kenyon_Cell",
-                    "CX",
-                    "mechanosensory",
-                    "AN",
-                    "olfactory",
-                    "ALPN",
-                    "LHLN",
-                    "ALLN",
-                    "gustatory",
-                    "DAN",
-                    "bilateral",
-                    "TuBu",
-                    "unknown_sensory",
-                    "MBON",
-                    "hygrosensory",
-                    "ocellar",
-                    "LHCENT",
-                    "pars_intercerebralis",
-                    "thermosensory",
-                    "pars_lateralis",
-                    "ALIN",
-                    "optic_lobes",
-                    "ALON",
-                    "MBIN",
-                    "TPN",
-                ],
-                "data_connectivity_tag_range": [
-                    "feedforward_loop_participant",
-                    "reciprocal",
-                    "3_cycle_participant",
-                    "rich_club",
-                    "highly_reciprocal_neuron",
-                    "nsrn",
-                    "integrator",
-                    "broadcaster",
-                ],
-                "data_flow_range": ["intrinsic", "afferent", "efferent"],
-                "data_nerve_range": [
-                    "CV",
-                    "AN",
-                    "MxLbN",
-                    "OCN",
-                    "PhN",
-                    "aPhN",
-                    "NCC",
-                    "ON",
-                ],
-                "data_nt_type_range": ["ACH", "GLUT", "GABA", "SER", "DA", "OCT"],
-                "data_side_range": ["left", "right", "center"],
-                "data_super_class_range": [
-                    "optic",
-                    "central",
-                    "sensory",
-                    "visual_projection",
-                    "ascending",
-                    "descending",
-                    "visual_centrifugal",
-                    "motor",
-                    "endocrine",
-                ],
+                "data_nt_type_range": ["UNKNOWN"],
+                "data_side_range": ["left", "right"],
             },
             self.neuron_db.dynamic_ranges(),
         )
@@ -722,9 +601,10 @@ class NeuronDataTest(TestCase):
                         data_range_key not in self.neuron_db.dynamic_ranges(), attr.name
                     )
                 else:
-                    self.assertEqual(
+                    # the values in the data are among the allowed ones (no cell is on the midline yet)
+                    self.assertLessEqual(
+                        set(self.neuron_db.dynamic_ranges().get(data_range_key, [])),
                         set(attr.value_range),
-                        set(self.neuron_db.dynamic_ranges()[data_range_key]),
                         attr.name,
                     )
 
@@ -828,16 +708,4 @@ class NeuronDataTest(TestCase):
         for nd in self.neuron_db.neuron_data.values():
             for ct in nd["connectivity_tag"]:
                 ct_counts[ct] += 1
-        self.assertEqual(
-            {
-                "3_cycle_participant": 68791,
-                "broadcaster": 477,
-                "feedforward_loop_participant": 118277,
-                "highly_reciprocal_neuron": 2440,
-                "integrator": 671,
-                "nsrn": 684,
-                "reciprocal": 81245,
-                "rich_club": 41760,
-            },
-            ct_counts,
-        )
+        self.assertEqual({}, dict(ct_counts))

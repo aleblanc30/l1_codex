@@ -34,7 +34,6 @@ class Test(TestCase):
                     "- Combined length": "NA",
                     "- Combined volume": "NA",
                     "- Classified": "0",
-                    "- With label(s)": "0",
                     "Cells": "0",
                 }
             },
@@ -56,20 +55,25 @@ class Test(TestCase):
             caption,
         )
         self.assertEqual(
-            {"", "Top Labels"},
+            {""},
             set(data_stats.keys()),
+        )
+        self.assertEqual(
+            {
+                "Cells": "5,067",
+                "- Classified": "0",
+                "- Combined length": "1,300,210 &#181;m",
+                "- Combined area": "0 &#181;m<sup>2</sup>",
+                "- Combined volume": "0 &#181;m<sup>3</sup>",
+            },
+            data_stats[""],
         )
         self.assertEqual(
             [
                 "Cell Type",
-                "Class",
-                "Connectivity Tag",
                 "Flow",
-                "Hemilineage",
-                "Nerve",
                 "Neurotransmitter Types",
                 "Side",
-                "Sub Class",
                 "Super Class",
                 "Top Input Regions",
                 "Top Output Regions",
@@ -77,6 +81,6 @@ class Test(TestCase):
             sorted(data_charts.keys()),
         )
         self.assertEqual(
-            [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+            [5, 5, 5, 5, 5, 5, 5],
             [len(data_charts[k]) for k in sorted(data_charts.keys())],
         )

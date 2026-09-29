@@ -1,3 +1,4 @@
+from collections import Counter
 from unittest import TestCase
 
 from codex.utils.graph_algos import pathways, reachable_node_counts
@@ -15,17 +16,26 @@ class TestGraphAlgos(TestCase):
         for n in sorted(self.neuron_db.neuron_data.keys())[1000:1001]:
             self.assertEqual(
                 {
-                    "1 hop": "12 (0%)",
-                    "2 hops": "5,261 (3%)",
-                    "3 hops": "23,733 (17%)",
-                    "4 hops": "77,092 (55%)",
-                    "5 hops": "118,010 (84%)",
-                    "6 hops": "127,454 (91%)",
-                    "7 hops": "127,815 (91%)",
-                    "8 hops": "127,837 (91%)",
+                    "1 hop": "18 (0%)",
+                    "2 hops": "293 (5%)",
+                    "3 hops": "2,494 (49%)",
+                    "4 hops": "3,542 (69%)",
+                    "5 hops": "3,776 (74%)",
+                    "6 hops": "3,803 (75%)",
+                    "7 hops": "3,804 (75%)",
                 },
                 reachable_node_counts({n}, isets, num_cells),
             )
+
+    def test_pathways_small_graph(self):
+        # 1 -> 2 -> 4 and 1 -> 3 -> 4 are shortest paths, 1 -> 5 -> 6 -> 4 is longer, 7 is a dead end
+        osets = {1: {2, 3, 5}, 2: {4}, 3: {4}, 5: {6}, 6: {4}, 7: set()}
+        isets = {2: {1}, 3: {1}, 5: {1}, 4: {2, 3, 6}, 6: {5}}
+        self.assertEqual({1: 0, 2: 1, 3: 1, 4: 2}, dict(pathways(1, 4, isets, osets)))
+        self.assertEqual({1: 0, 5: 1, 6: 2}, dict(pathways("1", "6", isets, osets)))
+        self.assertIsNone(pathways(4, 1, isets, osets))
+        self.assertIsNone(pathways(1, 7, isets, osets))
+        self.assertIsNone(pathways(1, "not an id", isets, osets))
 
     def test_pathways(self):
         s = t = 0
@@ -40,69 +50,40 @@ class TestGraphAlgos(TestCase):
 
         self.assertEqual(None, pathways(s, s, isets, osets))
         self.assertEqual(
-            {
-                720575940602928608: 0,
-                720575940602943968: 4,
-                720575940603526005: 2,
-                720575940604636789: 2,
-                720575940605413129: 2,
-                720575940607902682: 2,
-                720575940608187778: 3,
-                720575940608288523: 2,
-                720575940609744733: 2,
-                720575940612276578: 3,
-                720575940613416744: 2,
-                720575940617572609: 2,
-                720575940618009318: 2,
-                720575940618490782: 2,
-                720575940618755638: 2,
-                720575940619209408: 2,
-                720575940620034932: 2,
-                720575940620851695: 3,
-                720575940624193255: 2,
-                720575940625242882: 2,
-                720575940626783507: 1,
-                720575940626872932: 3,
-                720575940626979621: 1,
-                720575940627201929: 2,
-                720575940627598852: 2,
-                720575940628259594: 2,
-                720575940629385594: 2,
-                720575940629548800: 1,
-                720575940632375379: 2,
-                720575940632621988: 2,
-                720575940634594411: 1,
-                720575940634612194: 2,
-                720575940634753983: 2,
-                720575940635232180: 2,
-                720575940635542452: 2,
-                720575940644255904: 3,
-                720575940645745262: 3,
-            },
+            {s: 0, t: 2, 6264270: 1, 3661586: 1},
             dict(pathways(s, t, isets, osets)),
         )
 
-        s = all_rids[400]
-        t = all_rids[401]
+        t = all_rids[102]
+        path_nodes = dict(pathways(s, t, isets, osets))
+        self.assertEqual(37, len(path_nodes))
+        self.assertEqual({0: 1, 1: 10, 2: 19, 3: 6, 4: 1}, Counter(path_nodes.values()))
+        self.assertEqual(0, path_nodes[s])
+        self.assertEqual(4, path_nodes[t])
+        # every node has a partner one layer before it and one layer after it, along the pathway
+        for n, layer in path_nodes.items():
+            if layer > 0:
+                self.assertTrue(
+                    any(path_nodes.get(i) == layer - 1 for i in isets.get(n, ())), n
+                )
+            if layer < 4:
+                self.assertTrue(
+                    any(path_nodes.get(o) == layer + 1 for o in osets.get(n, ())), n
+                )
+
+        s = all_rids[101]
+        path_nodes = dict(pathways(s, t, isets, osets))
         self.assertEqual(
             {
-                720575940603942828: 0,
-                720575940603942846: 4,
-                720575940605607392: 1,
-                720575940612149362: 1,
-                720575940613560994: 3,
-                720575940620320902: 1,
-                720575940622462612: 1,
-                720575940624615462: 1,
-                720575940624923655: 2,
-                720575940625967546: 3,
-                720575940628350567: 1,
-                720575940628694019: 2,
-                720575940629437545: 2,
-                720575940634874266: 2,
-                720575940635967886: 1,
-                720575940638910040: 1,
-                720575940641706184: 2,
+                s: 0,
+                t: 4,
+                18981220: 1,
+                183502: 1,
+                3054101: 2,
+                16575803: 2,
+                19120853: 2,
+                3613276: 3,
+                9903957: 3,
             },
-            dict(pathways(s, t, isets, osets)),
+            path_nodes,
         )
