@@ -1,5 +1,6 @@
 from collections import defaultdict
 from functools import lru_cache
+from html import escape
 
 from flask import url_for
 
@@ -64,7 +65,7 @@ def cached_cell_details(
 ):
     nd = neuron_db.get_neuron_data(root_id=root_id)
     cell_attributes = {
-        "Name": nd["name"],
+        "Name": escape(nd["name"]),
         "Skeleton ID": f"{root_id}<br><small>"
         f'<a href="cell_coordinates/{root_id}?data_version={data_version}" target="_blank">Coordinates <i class="fa-solid fa-up-right-from-square"></i> </a>'
         "</small>",
@@ -112,7 +113,7 @@ def cached_cell_details(
         '<a href="" data-toggle="modal" data-target="#cellAnnotationsModal">'
         'info & credits <i class="fa-solid fa-up-right-from-square"></i></a></small>': concat_labels(
             [
-                f"{display(cl)}: <b>{', '.join([str(v) for v in nd[cl]]) if isinstance(nd[cl], list) else nd[cl]}</b>"
+                f"{display(cl)}: <b>{escape(', '.join([str(v) for v in nd[cl]]) if isinstance(nd[cl], list) else str(nd[cl]))}</b>"
                 for cl in [
                     "side",
                     "nerve",

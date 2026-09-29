@@ -1,4 +1,5 @@
 import math
+from html import escape
 from collections import defaultdict
 
 from flask import url_for
@@ -157,10 +158,11 @@ def make_graph_html(
             return " "
 
     def node_title(nid):
-        name = name_getter(nid)
+        # the title is shown as HTML, and names come from the data
+        name = escape(str(name_getter(nid)))
         if not class_getter:
             return name
-        class_and_annotations = class_getter(nid)
+        class_and_annotations = escape(str(class_getter(nid)))
 
         prefix = "queried cell" if nid in center_ids else "connected cell"
         cell_detail_url = url_for("app.cell_details", root_id=nid)

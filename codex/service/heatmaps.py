@@ -1,4 +1,5 @@
 import math
+from html import escape
 from collections import defaultdict
 from functools import lru_cache
 
@@ -40,7 +41,7 @@ def make_table(counts_table, group_sizes, normalization_table=None, max_groups=N
         groups = groups[: max_groups + 1]
 
     def header_caption(cln):
-        return f"<b>{cln}</b>&nbsp;<small>{round(100 * group_sizes[cln] / group_sizes[ALL])}%</small>"
+        return f"<b>{escape(cln)}</b>&nbsp;<small>{round(100 * group_sizes[cln] / group_sizes[ALL])}%</small>"
 
     table = [["from \\ to"] + [header_caption(c) for c in groups]]
 

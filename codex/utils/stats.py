@@ -1,4 +1,5 @@
 from collections import defaultdict, namedtuple
+from html import escape
 
 from codex.data.brain_regions import NEUROPIL_DESCRIPTIONS
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_CHOICES
@@ -38,7 +39,7 @@ def make_chart_from_counts(
 
     def _tooltip(key):
         return (
-            f"<b>{key}</b><br>{descriptions_dict.get(key)}<br><b>{counts_dict[key]}</b>"
+            f"<b>{escape(str(key))}</b><br>{descriptions_dict.get(key)}<br><b>{counts_dict[key]}</b>"
             if descriptions_dict
             else None
         )
