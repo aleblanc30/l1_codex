@@ -1,0 +1,13 @@
+# Render blueprint: a free web service that sleeps when idle and wakes on the next request.
+services:
+  - type: web
+    name: codex-l1
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      # Branch or tag that the neuroglancer links read the skeleton and mesh files from
+      - key: CODEX_DATA_REF
+        value: main

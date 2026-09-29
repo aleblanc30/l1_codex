@@ -53,6 +53,27 @@ poetry run ./scripts/run_local_dev.sh
 
 Navigate to [localhost:5000](http://localhost:5000)
 
+## Deployment
+
+Codex is a Flask application, so it needs a host that runs Python. GitHub Pages only serves static
+files, and is used here only for the neuroglancer data (`data/l1_skeletons` and `data/l1_meshes`), which
+the 3D viewer links read from `raw.githubusercontent.com`.
+
+The app needs about 200 MB of memory and starts in under a second. The repository contains a
+`Dockerfile` that runs it with gunicorn, and a `render.yaml` for [Render](https://render.com), whose free
+web services sleep when idle and wake on the next request:
+
+1. In Render, choose New, then Blueprint, and select this repository and the `main` branch.
+2. Render builds the image and generates `FLASK_SECRET_KEY`. Nothing else has to be set.
+
+Any other host that runs Docker images works the same way: set `FLASK_SECRET_KEY` to a random secret and
+give the container the port to listen on in `PORT`. Optional settings:
+
+- `CODEX_DATA_REF`: branch or tag that the viewer links read the skeleton and mesh files from (default `main`)
+- `CODEX_DATA_HOST_URL`: another host for those files
+- `CODEX_NEUROGLANCER_URL`: another neuroglancer deployment (default: the public demo instance)
+- `CODEX_DATA_URL`: base URL of hosted raw data files, if they should not come from the repository
+
 ## Testing before posting a PR or merging (please fork - do not create branches in the main repo)
 
 ### Manual UI testing (Required)

@@ -101,6 +101,14 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [ ] Mocked-pymaid test of the export script
 - [x] CI data step: `python -m codex.data.local_data_loader` now builds the database from the bundled export without any download
 
+### Deployment
+
+- [x] Docker image (`Dockerfile`, `.dockerignore`) that runs the app with gunicorn on the port in `PORT`, with the database built when the image is built. The image is 254 MB, uses about 170 MB of memory, and was built and run locally (in this sandbox the build needed the proxy CA for pip, which a normal host does not)
+- [x] Render blueprint (`render.yaml`) for a free web service that sleeps when idle, with a generated `FLASK_SECRET_KEY`, and a Deployment section in the README
+- [ ] Merge to `main` so that the data files and the default `CODEX_DATA_REF` line up
+- [ ] Create the service on Render from the blueprint, and check the first request after a sleep (the free tier's current terms and limits were not checked)
+- [ ] Decide on a domain name, if one is wanted
+
 ### Deferred
 
 - [ ] Page text, About and FAQ pages, branding
