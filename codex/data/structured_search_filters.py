@@ -282,14 +282,14 @@ STRUCTURED_SEARCH_ATTRIBUTES = [
     SearchAttribute(
         description="Share (0 to 1) of the cell's output synapses that go to orphaned synaptic sites",
         name="orphan_output_share",
-        value_getter=_orphan_share("orphan_output_synapses", "output_synapses"),
+        value_getter=_orphan_share("orphan_output_synapses", "total_output_synapses"),
         value_convertor=_to_number,
         numeric=True,
     ),
     SearchAttribute(
         description="Share (0 to 1) of the cell's input synapses that come from orphaned synaptic sites",
         name="orphan_input_share",
-        value_getter=_orphan_share("orphan_input_synapses", "input_synapses"),
+        value_getter=_orphan_share("orphan_input_synapses", "total_input_synapses"),
         value_convertor=_to_number,
         numeric=True,
     ),

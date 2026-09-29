@@ -1,9 +1,10 @@
 import os
 from random import randint
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from flask import (
     Blueprint,
+    g,
     redirect,
     request,
     send_from_directory,
@@ -16,6 +17,14 @@ from codex.configuration import (
 )
 from codex.data.faq_qa_kb import FAQ_QA_KB
 from codex.data.neuron_data_factory import NeuronDataFactory
+from codex.data.neuron_sets import (
+    NEURON_SET_COOKIE_MAX_AGE,
+    NEURON_SET_PARAMETER,
+    activate_neuron_set,
+    active_neuron_set,
+    deactivate_neuron_set,
+    resolve_neuron_set,
+)
 from codex.data.versions import (
     DATA_SNAPSHOT_VERSION_DESCRIPTIONS,
     DEFAULT_DATA_SNAPSHOT_VERSION,
@@ -75,6 +84,83 @@ def render_template(template_name_or_list, **context):
 
 
 base = Blueprint("base", __name__)
+
+NEURON_SET_COOKIE = NEURON_SET_PARAMETER
+
+
+@base.before_app_request
+def choose_neuron_set():
+    # A neuron_set parameter in the URL wins over the cookie, so that a link can carry the choice
+    requested = request.args.get(NEURON_SET_PARAMETER) or request.cookies.get(
+        NEURON_SET_COOKIE
+    )
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    g.neuron_set_token = activate_neuron_set(resolve_neuron_set(requested, available))
+
+
+@base.teardown_app_request
+def release_neuron_set(exc=None):
+    token = g.pop("neuron_set_token", None)
+    if token is not None:
+        deactivate_neuron_set(token)
+
+
+def safe_local_path(path):
+    """The path if it leads to a page of this site, else the home page. Guards redirects against
+    other hosts, scheme-relative URLs and header injection."""
+    if (
+        not path
+        or not path.startswith("/")
+        or path.startswith("//")
+        or "\\" in path
+        or any(ord(c) < 32 or ord(c) == 127 for c in path)
+    ):
+        return "/"
+    parts = urlsplit(path)
+    return path if not parts.scheme and not parts.netloc else "/"
+
+
+def neuron_set_selector():
+    """What the page needs to offer the choice of neuron set: options, the current one, and where to
+    return to after a change."""
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    current = active_neuron_set() or resolve_neuron_set(None, available)
+    remaining_args = [
+        (k, v) for k, v in request.args.items(multi=True) if k != NEURON_SET_PARAMETER
+    ]
+    here = request.path + ("?" + urlencode(remaining_args) if remaining_args else "")
+    return {
+        "current": current,
+        "options": [
+            {
+                "key": neuron_set.key,
+                "label": f"{neuron_set.label} ({display(len(neuron_set.ids))})",
+                "selected": neuron_set.key == current,
+            }
+            for neuron_set in available.values()
+        ],
+        "change_url": url_for("base.set_neuron_set"),
+        "return_to": here,
+    }
+
+
+jinja_env.globals["neuron_set_selector"] = neuron_set_selector
+
+
+@base.route("/neuron_set")
+def set_neuron_set():
+    value = request.args.get("value")
+    response = redirect(safe_local_path(request.args.get("next")))
+    available = NeuronDataFactory.instance().get_unrestricted().neuron_sets()
+    if value in available:
+        response.set_cookie(
+            NEURON_SET_COOKIE,
+            value,
+            max_age=NEURON_SET_COOKIE_MAX_AGE,
+            samesite="Lax",
+            httponly=True,
+        )
+    return response
 
 
 @base.route("/favicon.ico")

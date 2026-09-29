@@ -31,6 +31,7 @@ from codex.data.brain_regions import (
 )
 from codex.data.faq_qa_kb import FAQ_QA_KB
 from codex.data.neuron_data_factory import NeuronDataFactory
+from codex.data.neuron_sets import active_neuron_set
 from codex.data.neuron_data_initializer import NETWORK_GROUP_BY_ATTRIBUTES
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES
 from codex.data.sorting import SORT_BY_OPTIONS, sort_search_results
@@ -83,6 +84,7 @@ def stats():
         data_version=data_version,
         case_sensitive=case_sensitive,
         whole_word=whole_word,
+        neuron_set=active_neuron_set(),
     )
     if num_items:
         logger.info(
@@ -397,7 +399,7 @@ def neuroglancer_url():
     # A single cell is shown centered on its soma (or root node)
     position = None
     if len(root_ids) == 1:
-        neuron_db = NeuronDataFactory.instance().get(data_version)
+        neuron_db = NeuronDataFactory.instance().get_unrestricted(data_version)
         if neuron_db.is_in_dataset(root_ids[0]):
             positions = neuron_db.get_neuron_data(root_ids[0])["position"]
             if positions:
@@ -455,9 +457,9 @@ def ngl_redirect_with_client_check(ngl_url):
 def cell_coordinates(cell_id):
     data_version = request.args.get("data_version", "")
     logger.info(f"Loading coordinates for cell {cell_id}, {data_version=}")
-    neuron_db = NeuronDataFactory.instance().get(data_version)
+    neuron_db = NeuronDataFactory.instance().get_unrestricted(data_version)
     nd = neuron_db.get_neuron_data(cell_id)
-    return f"<h2>Coordinates for {cell_id}</h2>" + "<br>".join(
+    return f"<h2>Coordinates for {escape(cell_id)}</h2>" + "<br>".join(
         [f"Nanometer coordinates: {c}" for c in nd["position"]]
     )
 
@@ -479,6 +481,11 @@ def cell_details():
             cell_names_or_id = f"name == {neuron_db.get_neuron_data(root_id)['name']}"
         else:
             logger.info(f"Generating cell detail page from search: '{cell_names_or_id}")
+            if str(cell_names_or_id).strip().isdigit():
+                # the page of a cell can be opened whatever the current neuron set is
+                neuron_db = NeuronDataFactory.instance().get_containing(
+                    int(cell_names_or_id), data_version
+                )
             root_ids = neuron_db.search(search_query=cell_names_or_id)
             if len(root_ids) == 1:
                 root_id = root_ids[0]
@@ -516,9 +523,14 @@ def pathways():
     neuron_db = NeuronDataFactory.instance().get(version=data_version)
     for rid in [source, target]:
         if not neuron_db.is_in_dataset(rid):
-            return render_error(
-                message=f"Cell {rid} is not in the dataset.", title="Cell not found"
-            )
+            if NeuronDataFactory.instance().get_unrestricted(data_version).is_in_dataset(rid):
+                message = (
+                    f"Cell {rid} is not in the selected set of neurons. "
+                    f"Choose another set in the Neurons menu, for example All skeletons."
+                )
+            else:
+                message = f"Cell {rid} is not in the dataset."
+            return render_error(message=message, title="Cell not found")
     root_ids = [source, target]
 
     layers, data_rows = pathway_chart_data_rows(

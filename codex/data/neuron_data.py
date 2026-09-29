@@ -3,6 +3,8 @@ from functools import lru_cache
 from random import choice
 
 from codex.data.connections import Connections
+from codex.data.network_derivatives import derive_connection_data
+from codex.data.neuron_sets import NEURON_SET_ALL, build_neuron_sets, resolve_neuron_set
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 from codex.data.search_index import SearchIndex
@@ -73,6 +75,9 @@ class NeuronDB(object):
         self.aggregate_ids = frozenset(
             rid for rid, nd in self.neuron_data.items() if nd.get("is_aggregate")
         )
+        # The neuron set this database shows. Databases for the other sets are derived from this one.
+        self.neuron_set_key = NEURON_SET_ALL
+        self._views = {}
 
         logger.debug("App initialization building search index..")
 
@@ -97,6 +102,42 @@ class NeuronDB(object):
                 for k, nd in self.neuron_data.items()
             ]
         )
+
+    @lru_cache
+    def neuron_sets(self):
+        return build_neuron_sets(self.neuron_data)
+
+    def view(self, neuron_set_key):
+        """The database restricted to a neuron set: its cells, the aggregates of orphaned sites, and
+        the connections between them. Partner counts and grouped counts are recomputed for the subset,
+        names and orphan shares stay as in the whole dataset."""
+        key = resolve_neuron_set(neuron_set_key, self.neuron_sets())
+        if key == NEURON_SET_ALL:
+            return self
+        if key not in self._views:
+            self._views[key] = self._restricted_to(self.neuron_sets()[key])
+        return self._views[key]
+
+    def _restricted_to(self, neuron_set):
+        keep = set(neuron_set.ids) | self.aggregate_ids
+        neuron_attributes = {
+            rid: dict(nd) for rid, nd in self.neuron_data.items() if rid in keep
+        }
+        rows = [r for r in self.connections_.all_rows() if r[0] in keep and r[1] in keep]
+        grouped_synapses, grouped_connections, grouped_reciprocal, _, _ = (
+            derive_connection_data(neuron_attributes, rows)
+        )
+        view = NeuronDB(
+            neuron_attributes=neuron_attributes,
+            neuron_connection_rows=rows,
+            label_data=self.label_data,
+            labels_file_timestamp=self.meta_data["labels_file_timestamp"],
+            grouped_synapse_counts=grouped_synapses,
+            grouped_connection_counts=grouped_connections,
+            grouped_reciprocal_connection_counts=grouped_reciprocal,
+        )
+        view.neuron_set_key = neuron_set.key
+        return view
 
     def input_sets(self, min_syn_count=0):
         return self.input_output_partner_sets(min_syn_count)[0]
