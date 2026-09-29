@@ -3,6 +3,7 @@ from collections import defaultdict
 from functools import lru_cache
 
 from codex.utils.formatting import display, UNDEFINED_THINGS
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 ALL = "All"
 UNKNOWN = "Unknown"
@@ -81,6 +82,7 @@ def make_table(counts_table, group_sizes, normalization_table=None):
     return table
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def counts_data(neuron_db, group_by, count_type):
     res_counts = defaultdict(int)

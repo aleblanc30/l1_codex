@@ -1,10 +1,16 @@
 from collections import defaultdict
-from functools import lru_cache
 from random import choice
 
 from codex.data.connections import Connections
+from codex.data.instance_cache import instance_cache
 from codex.data.network_derivatives import derive_connection_data
-from codex.data.neuron_sets import NEURON_SET_ALL, build_neuron_sets, resolve_neuron_set
+from codex.data.neuron_sets import (
+    DEFAULT_NEURON_SET,
+    NEURON_SET_ALL,
+    build_neuron_sets,
+    resolve_neuron_set,
+)
+from codex.data.view_cache import ViewCache
 from codex.data.neurotransmitters import NEURO_TRANSMITTER_NAMES, NT_UNKNOWN
 
 from codex.data.search_index import SearchIndex
@@ -14,7 +20,10 @@ from codex.data.structured_search_filters import (
     parse_search_query,
     structured_terms_reference_attributes,
 )
-from codex.configuration import MIN_NBLAST_SCORE_SIMILARITY
+from codex.configuration import (
+    MIN_NBLAST_SCORE_SIMILARITY,
+    NEURON_SET_VIEW_CELL_BUDGET,
+)
 from codex.utils.formatting import (
     display,
     percentage,
@@ -77,7 +86,7 @@ class NeuronDB(object):
         )
         # The neuron set this database shows. Databases for the other sets are derived from this one.
         self.neuron_set_key = NEURON_SET_ALL
-        self._views = {}
+        self.view_cache = self._new_view_cache()
 
         logger.debug("App initialization building search index..")
 
@@ -103,7 +112,24 @@ class NeuronDB(object):
             ]
         )
 
-    @lru_cache
+    @staticmethod
+    def _new_view_cache():
+        return ViewCache(
+            max_cells=NEURON_SET_VIEW_CELL_BUDGET, pinned=[DEFAULT_NEURON_SET]
+        )
+
+    # Caches and locks are neither pickled nor shared between copies
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        state.pop("_instance_caches", None)
+        state.pop("view_cache", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.view_cache = self._new_view_cache()
+
+    @instance_cache
     def neuron_sets(self):
         return build_neuron_sets(self.neuron_data)
 
@@ -114,9 +140,10 @@ class NeuronDB(object):
         key = resolve_neuron_set(neuron_set_key, self.neuron_sets())
         if key == NEURON_SET_ALL:
             return self
-        if key not in self._views:
-            self._views[key] = self._restricted_to(self.neuron_sets()[key])
-        return self._views[key]
+        neuron_set = self.neuron_sets()[key]
+        return self.view_cache.get(
+            key, len(neuron_set.ids), lambda: self._restricted_to(neuron_set)
+        )
 
     def _restricted_to(self, neuron_set):
         keep = set(neuron_set.ids) | self.aggregate_ids
@@ -145,7 +172,7 @@ class NeuronDB(object):
     def output_sets(self, min_syn_count=0):
         return self.input_output_partner_sets(min_syn_count)[1]
 
-    @lru_cache
+    @instance_cache
     def input_output_partner_sets(self, min_syn_count=0):
         ins, outs = self.input_output_partners_with_synapse_counts(
             min_syn_count=min_syn_count
@@ -154,7 +181,7 @@ class NeuronDB(object):
         outs = {k: set(v.keys()) for k, v in outs.items()}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def input_output_partners_with_synapse_counts(self, min_syn_count=0):
         ins, outs = self.connections_.input_output_partners_with_synapse_counts()
         aggregate_ids = self.aggregate_ids
@@ -179,7 +206,7 @@ class NeuronDB(object):
                 outs[rid] = {}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def input_output_regions_with_synapse_counts(self):
         ins, outs = self.connections_.input_output_regions_with_synapse_counts()
         for rid in self.neuron_data.keys():
@@ -189,7 +216,7 @@ class NeuronDB(object):
                 outs[rid] = {}
         return ins, outs
 
-    @lru_cache
+    @instance_cache
     def cell_connections(self, cell_id):
         return list(self.connections_.rows_for_cell(cell_id))
 
@@ -217,7 +244,7 @@ class NeuronDB(object):
                 )
             )
 
-    @lru_cache
+    @instance_cache
     def connections_up_down(self, cell_id, by_neuropil=False):
         try:
             cell_id = int(cell_id)
@@ -256,11 +283,11 @@ class NeuronDB(object):
     def num_connections(self):
         return self.connections_.num_connections()
 
-    @lru_cache
+    @instance_cache
     def num_labels(self):
         return sum([len(nd["label"]) for nd in self.neuron_data.values()])
 
-    @lru_cache
+    @instance_cache
     def num_typed_or_identified_cells(self):
         return len(
             [
@@ -270,7 +297,7 @@ class NeuronDB(object):
             ]
         )
 
-    @lru_cache
+    @instance_cache
     def unique_values(self, attr_name):
         vals = set()
         for nd in self.neuron_data.values():
@@ -281,7 +308,7 @@ class NeuronDB(object):
                     vals.add(nd[attr_name])
         return sorted(vals)
 
-    @lru_cache
+    @instance_cache
     def categories(self, top_values, for_attr_name=None):
         value_counts_dict = defaultdict(lambda: defaultdict(int))
         assigned_to_num_cells_dict = defaultdict(int)
@@ -360,7 +387,7 @@ class NeuronDB(object):
         ]
 
     # Returns value ranges for all attributes with not too many different values. Used for advanced search dropdowns.
-    @lru_cache
+    @instance_cache
     def dynamic_ranges(self, range_cardinality_cap=40):
         res = {}
         for dct in self.categories(top_values=range_cardinality_cap):
@@ -382,7 +409,7 @@ class NeuronDB(object):
             nd = {}
         return nd
 
-    @lru_cache
+    @instance_cache
     def get_similar_shape_cells(
         self,
         root_id,
@@ -406,7 +433,7 @@ class NeuronDB(object):
         scores = sorted(scores, key=lambda p: -p[1])[:top_k]
         return {p[0]: p[1] for p in scores}
 
-    @lru_cache
+    @instance_cache
     def get_similar_connectivity_cells(
         self,
         root_id,
@@ -560,7 +587,7 @@ class NeuronDB(object):
             structured_terms, {"is_aggregate", "root_id"}
         )
 
-    @lru_cache
+    @instance_cache
     def search(self, search_query, case_sensitive=False, word_match=False):
         results = self._search(search_query, case_sensitive, word_match)
         if self.aggregate_ids and not self._asks_for_aggregates(search_query):

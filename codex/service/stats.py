@@ -6,8 +6,10 @@ from codex.utils.graph_algos import reachable_node_counts
 from codex.utils import stats as stats_utils
 
 from codex import logger
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def stats_cached(
     filter_string, data_version, case_sensitive, whole_word, neuron_set=None

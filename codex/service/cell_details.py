@@ -26,6 +26,7 @@ from codex.utils.formatting import (
     display,
 )
 from codex.utils.graph_algos import reachable_node_counts
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
 def connectivity_tag_links(root_id, connectivity_tag):
@@ -55,6 +56,7 @@ def connectivity_tag_links(root_id, connectivity_tag):
         return None
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def cached_cell_details(
     cell_names_or_id, root_id, neuron_db, data_version, reachability_stats

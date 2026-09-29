@@ -4,6 +4,7 @@ from functools import lru_cache
 from codex.utils.formatting import percentage, display
 
 from codex import logger
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
 # computes the set of nodes reachable in 1 hop from given sources
@@ -64,6 +65,7 @@ def distance_matrix(sources, targets, neuron_db, min_syn_count):
     return [list(r) for r in cached_res]
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def _cached_distance_matrix(
     sorted_sources_str, sorted_targets_str, neuron_db, min_syn_count

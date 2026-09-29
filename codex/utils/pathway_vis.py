@@ -2,6 +2,7 @@ from collections import defaultdict
 from functools import lru_cache
 
 from codex.utils.graph_algos import pathways
+from codex.data.view_cache import cleared_when_a_view_is_evicted
 
 
 def sort_layers(node_layers, cons):
@@ -58,6 +59,7 @@ def sort_layers(node_layers, cons):
         node_layers[node] = (layer_i, layer.index(node))
 
 
+@cleared_when_a_view_is_evicted
 @lru_cache
 def pathway_chart_data_rows(source, target, neuron_db, min_syn_count=0):
     input_sets = neuron_db.input_sets(min_syn_count=min_syn_count)
