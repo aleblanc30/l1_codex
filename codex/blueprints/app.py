@@ -49,6 +49,7 @@ from codex.service.heatmaps import heatmap_data
 from codex.service.motif_search import MotifSearchQuery
 from codex.service.network import compile_network_html
 from codex.service.search import DEFAULT_PAGE_SIZE, pagination_data
+from codex.service.sample_cells import sample_network_cells, sample_pathway_cells
 from codex.service.stats import stats_cached
 from codex.utils import nglui
 from codex.utils.formatting import (
@@ -565,8 +566,7 @@ def path_length():
         neuron_db = NeuronDataFactory.instance().get(data_version)
 
         if source_cell_names_or_ids == target_cell_names_or_ids == "__sample_cells__":
-            root_ids_src = neuron_db.search(search_query="gustatory")[:3]
-            root_ids_target = neuron_db.search(search_query="motor")[:5]
+            root_ids_src, root_ids_target = sample_pathway_cells(neuron_db)
             source_cell_names_or_ids = ", ".join([str(rid) for rid in root_ids_src])
             target_cell_names_or_ids = ", ".join([str(rid) for rid in root_ids_target])
             logger.info("Generating path lengths table for sample cells")
@@ -745,15 +745,7 @@ def connectivity():
         neuron_db = NeuronDataFactory.instance().get(data_version)
         node_labels = None
         if cell_names_or_ids == "__sample_cells__":
-            root_ids = [
-                720575940623725972,
-                720575940630057979,
-                720575940633300148,
-                720575940644300323,
-                720575940640176848,
-                720575940627796298,
-            ]
-            root_ids = [r for r in root_ids if neuron_db.is_in_dataset(r)]
+            root_ids = sample_network_cells(neuron_db)
             cell_names_or_ids = ", ".join([str(rid) for rid in root_ids])
             logger.info("Generating connectivity network for sample cells")
         else:
