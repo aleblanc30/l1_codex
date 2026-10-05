@@ -37,6 +37,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [x] Synapse assignment test against the segment volumes
 - [x] Sizing of the connector and partner fetch
 - [x] Nature of the placeholder skeletons
+- [ ] Assemble a table of appropriate citations. This is extremely urgent.
 
 ### Phase 1: exporter
 
