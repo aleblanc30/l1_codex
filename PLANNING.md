@@ -37,6 +37,7 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 - [x] Synapse assignment test against the segment volumes
 - [x] Sizing of the connector and partner fetch
 - [x] Nature of the placeholder skeletons
+- [ ] Assemble a table of appropriate citations. This is extremely urgent.
 
 ### Phase 1: exporter
 
@@ -117,7 +118,8 @@ Codex becomes an explorer for the L1 larval Drosophila EM dataset (public CATMAI
 
 ### Deferred
 
-- [ ] Page text, About and FAQ pages, branding
+- [x] First pass on page text: the home page, the credits page, the FAQ answers and the navigation label now describe the L1 dataset, and the images under `codex/static/assets` are grey placeholders with the same names and sizes
+- [ ] Text that needs the owners: creators, grants, terms of service, contact address, source code link and the citation table on the About and credits pages, plus final images and branding
 - [ ] NBLAST similarity computed offline with navis
 - [ ] Rendered skeleton thumbnails
 
